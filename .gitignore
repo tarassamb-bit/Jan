@@ -4,5 +4,9 @@ qa/
 .DS_Store
 *.log
 .vercel/
+.env
+.env.local
+.env.*.local
+!.env.example
 AGENTS.md
 design-qa.md

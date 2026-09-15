@@ -15,8 +15,24 @@ npm run dev
 npm run build
 ```
 
-The deployable static output is written to `dist/client`.
+The deployable frontend output is written to `dist/client`. The Groq proxy is deployed from `api/chat.js` as a Vercel Function.
 
 ## Vercel
 
 The project includes `vercel.json` with the build command, output directory, and SPA rewrites. Vercel Web Analytics and Speed Insights are mounted through their React integrations and begin collecting data after deployment and a site visit.
+
+Add these environment variables in Vercel before using live chat:
+
+```text
+GROQ_API_KEY=your_server_side_key
+GROQ_MODEL=openai/gpt-oss-20b
+```
+
+Never prefix the Groq key with `VITE_`; doing so would expose it in the browser bundle. The current login/sign-up flow is a local prototype session and should be replaced with a real identity provider before allowing public traffic to spend against the Groq account.
+
+## Tests
+
+```bash
+npm run test:chat
+npm run test:sites
+```
