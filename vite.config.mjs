@@ -1,6 +1,6 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
-import { requestGroq, validateMessages } from "./api/chat.js";
+import { DEFAULT_MODEL, listAvailableModels, requestGroq, requestGroqStream, validateMessages } from "./api/chat.js";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -11,7 +11,9 @@ export default defineConfig(({ mode }) => {
         res.setHeader("Content-Type", "application/json; charset=utf-8");
         if (req.method === "GET") {
           res.statusCode = 200;
-          res.end(JSON.stringify({ configured: Boolean(env.GROQ_API_KEY), model: env.GROQ_MODEL || "openai/gpt-oss-20b" }));
+          const models = await listAvailableModels(env.GROQ_API_KEY);
+          const preferred = env.GROQ_MODEL || DEFAULT_MODEL;
+          res.end(JSON.stringify({ configured: Boolean(env.GROQ_API_KEY), model: models.includes(preferred) ? preferred : models[0], models }));
           return;
         }
         if (req.method !== "POST") {
@@ -32,7 +34,7 @@ export default defineConfig(({ mode }) => {
         const messages = validateMessages(body.messages);
         if (!messages) {
           res.statusCode = 400;
-          res.end(JSON.stringify({ error: "Send between 1 and 20 valid chat messages." }));
+          res.end(JSON.stringify({ error: "Send between 1 and 20 valid chat messages, up to 16,000 characters each." }));
           return;
         }
         if (!env.GROQ_API_KEY) {
@@ -40,8 +42,36 @@ export default defineConfig(({ mode }) => {
           res.end(JSON.stringify({ code: "GROQ_NOT_CONFIGURED", error: "Groq is not connected yet." }));
           return;
         }
+        const availableModels = await listAvailableModels(env.GROQ_API_KEY);
+        const requestedModel = body.model;
+        const configuredModel = env.GROQ_MODEL || DEFAULT_MODEL;
+        const model = requestedModel && availableModels.includes(requestedModel) ? requestedModel : availableModels.includes(configuredModel) ? configuredModel : availableModels[0];
+        const containsImages = messages.some((message) => Array.isArray(message.content) && message.content.some((part) => part.type === "image_url"));
+        if (containsImages && model !== "qwen/qwen3.8-27b") {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: "Photos require Qwen 3.8 Vision. Select that model and try again." }));
+          return;
+        }
         try {
-          const answer = await requestGroq({ messages, apiKey: env.GROQ_API_KEY, model: env.GROQ_MODEL });
+          if (body.stream === true) {
+            const controller = new AbortController();
+            req.once("aborted", () => controller.abort());
+            res.statusCode = 200;
+            res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+            res.setHeader("Cache-Control", "no-cache, no-transform");
+            res.setHeader("Connection", "keep-alive");
+            const upstream = await requestGroqStream({ messages, apiKey: env.GROQ_API_KEY, model, signal: controller.signal });
+            const reader = upstream.body.getReader();
+            res.once("close", () => { if (!res.writableEnded) reader.cancel().catch(() => {}); });
+            while (!res.writableEnded) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              res.write(Buffer.from(value));
+            }
+            if (!res.writableEnded) res.end();
+            return;
+          }
+          const answer = await requestGroq({ messages, apiKey: env.GROQ_API_KEY, model });
           res.statusCode = 200;
           res.end(JSON.stringify(answer));
         } catch (error) {

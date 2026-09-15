@@ -28,7 +28,9 @@ GROQ_API_KEY=your_server_side_key
 GROQ_MODEL=openai/gpt-oss-20b
 ```
 
-Never prefix the Groq key with `VITE_`; doing so would expose it in the browser bundle. The current login/sign-up flow is a local prototype session and should be replaced with a real identity provider before allowing public traffic to spend against the Groq account.
+Run [`supabase-schema.sql`](./supabase-schema.sql) in the Supabase SQL Editor after pulling these changes. It safely adds the `attachments` column used to retain file metadata alongside chat messages.
+
+Never prefix the Groq key with `VITE_`; doing so would expose it in the browser bundle. Real accounts use Supabase Auth; the visible demo option stores only a local browser session and is intended for trying the UI without signing up.
 
 ## Tests
 

@@ -15,8 +15,12 @@ create table if not exists messages (
   conversation_id uuid references conversations(id) on delete cascade not null,
   role text not null check (role in ('user', 'assistant')),
   content text not null,
+  attachments jsonb not null default '[]'::jsonb,
   created_at timestamptz default now()
 );
+
+-- Safe for projects that already created the messages table before attachments existed.
+alter table messages add column if not exists attachments jsonb not null default '[]'::jsonb;
 
 -- Indexes for fast queries
 create index if not exists idx_conversations_user_id on conversations(user_id);
