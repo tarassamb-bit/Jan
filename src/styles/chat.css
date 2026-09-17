@@ -439,3 +439,10 @@
   .chat-composer-wrap>small{font-size:10px}
   .chat-message-actions{opacity:1}
 }
+
+/* Let the model picker and Stop button share the footer without overlapping. */
+.chat-composer-footer .chat-composer-tools{display:flex;flex:1 1 auto;min-width:0}
+.chat-composer-footer .jan-model-picker{position:relative;right:auto;bottom:auto;z-index:6;flex:0 1 auto;min-width:0;max-width:calc(100% - 46px);margin-left:auto}
+.chat-composer-footer .jan-model-trigger{max-width:100%!important}
+.chat-composer-footer .chat-composer-send{flex:0 0 auto;margin-left:10px}
+@media(max-width:520px){.chat-composer-footer .jan-model-popover{position:fixed;top:68px;right:10px;bottom:auto;left:10px;width:auto;max-height:calc(100dvh - 86px);overflow-y:auto}}

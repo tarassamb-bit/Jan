@@ -287,9 +287,15 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
 
   useConversationMessages({ conversationId: activeConversationId, user, client: supabase, creatingConversationRef, setMessages, setMessagesLoading, setError });
 
+  const scrollToLatest = (behavior = "auto") => {
+    const node = scrollRef.current;
+    if (!node) return;
+    node.scrollTo({ top: node.scrollHeight, behavior });
+  };
+
   useEffect(() => {
     if (!followLatestRef.current) return undefined;
-    const scrollConversation = () => scrollRef.current?.scrollTo({ top: messages.length ? scrollRef.current.scrollHeight : 0, behavior: "auto" });
+    const scrollConversation = () => scrollToLatest();
     const frame = window.requestAnimationFrame(scrollConversation);
     const settleTimer = window.setTimeout(scrollConversation, 250);
     return () => { window.cancelAnimationFrame(frame); window.clearTimeout(settleTimer); };
@@ -394,6 +400,9 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
     setShowLatestButton(false);
     let convId = activeConversationId;
     let streamedContent = "";
+    let displayedContent = "";
+    let latestStreamContent = "";
+    let revealFrame = null;
     let savedUser = false;
     const assistantId = crypto.randomUUID();
     const firstMessage = messages.length === 0;
@@ -423,12 +432,23 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
         onUsage: (usage) => { if (current()) setDailyUsage(usage); },
         onDelta: (text) => {
           streamedContent = text;
-          if (current()) setMessages((previous) => previous.map((message) => message.id === assistantId ? { ...message, content: text } : message));
+          latestStreamContent = text;
+          if (revealFrame || !current()) return;
+          const reveal = () => {
+            if (!current()) return;
+            const remaining = latestStreamContent.length - displayedContent.length;
+            if (remaining <= 0) { revealFrame = null; return; }
+            displayedContent = latestStreamContent.slice(0, displayedContent.length + Math.min(remaining, Math.max(2, Math.ceil(remaining / 18))));
+            setMessages((previous) => previous.map((message) => message.id === assistantId ? { ...message, content: displayedContent } : message));
+            revealFrame = window.requestAnimationFrame(reveal);
+          };
+          revealFrame = window.requestAnimationFrame(reveal);
         },
       });
     } catch (requestError) {
       if (current()) setError(requestError.name === "AbortError" ? "Response stopped." : requestError.message || "Jan couldn’t respond. Please try again.");
     } finally {
+      if (revealFrame) window.cancelAnimationFrame(revealFrame);
       if (creatingConversationRef.current === convId) creatingConversationRef.current = null;
       if (streamedContent.trim() && savedUser) {
         if (accountSettings.developer_mode) {
@@ -769,13 +789,13 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
     <section className={`chat-workspace ${workspaceHasMessages ? "chat-workspace-thread" : "chat-workspace-empty"}`}>
       <header className="chat-topbar"><div className="chat-topbar-title"><button className="chat-menu" type="button" onClick={() => setSidebarOpen(true)} aria-label="Open navigation"><FiMenu /></button>{(workspaceView === "chat" || workspaceView === "project-chat") && <div><strong>{workspaceView === "project-chat" ? activeProjectChat?.title || "Project chat" : conversationTitle}</strong><small>{workspaceView === "project-chat" ? activeProject?.name : "Saved automatically"}</small></div>}</div><div className="chat-topbar-actions"><span className={`chat-header-connection connection-${connection}`}><i />{connectionLabel}</span><Link href="/" aria-label="Back to website"><FiX /></Link></div></header>
       {chatSearchOpen && <div className="chat-search-overlay" role="dialog" aria-modal="true" aria-label="Search chats"><div className="chat-search-panel"><div className="chat-search-input"><FiSearch /><input autoFocus value={chatSearchQuery} onChange={(event) => setChatSearchQuery(event.target.value)} placeholder="Search chats" aria-label="Search chats" /><button type="button" onClick={() => { setChatSearchOpen(false); setChatSearchQuery(""); }} aria-label="Close chat search"><FiX /></button></div><p>{fullSearchStatus === "complete" && !matchingConversations.length ? "FULL SEARCH" : "CHATS"}</p>{displayedSearchResults.length ? <div className="chat-search-results">{displayedSearchResults.map((conversation) => <button type="button" key={conversation.id} onClick={() => { setWorkspaceView("chat"); switchConversation(conversation.id); setChatSearchOpen(false); setChatSearchQuery(""); }}><FiMessageCircle /><span><strong>{conversation.title}</strong>{conversation.match && <small className="chat-search-snippet">{conversation.match}</small>}</span><small>{new Date(conversation.updated_at).toLocaleDateString()}</small></button>)}</div> : chatSearchQuery.trim() ? <div className="chat-search-empty">{fullSearchStatus === "loading" ? "Searching every conversation…" : fullSearchStatus === "complete" ? "No matches in your conversations." : fullSearchStatus === "error" ? "Full search is unavailable. Try again." : <><span>No chat titles match “{chatSearchQuery.trim()}”.</span><button type="button" onClick={tryFullChatSearch}>Try full search</button><small>Search for this word in every conversation.</small></>}</div> : <div className="chat-search-empty">Start typing to search your chats.</div>}</div></div>}
-      {workspaceView === "chat" ? <><div className="chat-scroll" ref={scrollRef} onScroll={(event) => { const node = event.currentTarget; const nearBottom = node.scrollHeight - node.scrollTop - node.clientHeight < 100; followLatestRef.current = nearBottom; setShowLatestButton(!nearBottom && messages.length > 0); }}>
+      {workspaceView === "chat" ? <><div className="chat-scroll" ref={scrollRef} onScroll={(event) => { const node = event.currentTarget; const nearBottom = node.scrollHeight - node.scrollTop - node.clientHeight < 100; const wasFollowing = followLatestRef.current; followLatestRef.current = nearBottom; setShowLatestButton(!nearBottom && messages.length > 0); if (nearBottom && !wasFollowing) window.requestAnimationFrame(() => scrollToLatest()); }}>
         {messagesLoading ? <div className="chat-empty" role="status">Loading conversation…</div> : !messages.length ? <section className="chat-empty"><h1>What can I help with?</h1><div className="chat-starters">{CHAT_STARTERS.map((starter) => <button type="button" key={starter.title} onClick={() => { setDraft(starter.title); textareaRef.current?.focus(); }}><FiArrowRight aria-hidden="true" /><span>{starter.title}</span></button>)}</div>{error && <div className="chat-error" role="alert"><strong>Couldn’t start this chat</strong><p>{error}</p></div>}</section> : <div className="chat-thread" role="log" aria-live="polite" aria-relevant="additions text">{messages.map((message, index) => <article className={`chat-message chat-message-${message.role}`} key={message.id || `${message.role}-${index}`} aria-label={`${message.role === "assistant" ? "Jan" : "You"} message`}>
           {message.role === "assistant" && <span className="chat-avatar"><img src="/assets/logo-jan.svg" alt="Jan" /></span>}
           <div className="chat-message-body"><div className="chat-message-meta"><strong>{message.role === "assistant" ? "Jan" : userDisplayName}</strong><span>{message.role === "assistant" ? message.streaming ? "Writing" : "Personal assistant" : "You"}</span></div>{message.attachments && message.attachments.length > 0 && <div className="chat-message-attachments">{message.attachments.map((a, i) => <div className="chat-msg-attachment" key={i}>{a.type?.startsWith("image/") && a.preview ? <img src={a.preview} alt={a.name} /> : <span className="chat-msg-file"><FiFile />{a.name}</span>}</div>)}</div>}{message.role === "assistant" ? message.streaming && !message.content ? <div className="chat-streaming-wait" aria-label="Jan is thinking"><i /><i /><i /><span>Jan is thinking</span></div> : <div className={message.streaming ? "chat-streaming-copy" : ""}><Suspense fallback={<p className="chat-response-loading">Formatting response…</p>}><MessageResponse>{message.content}</MessageResponse></Suspense></div> : <p className="chat-user-copy">{message.content}</p>}{message.role === "assistant" && !message.streaming && <div className="chat-message-actions"><button type="button" onClick={() => copyMessage(message.content, index)} aria-label="Copy response">{copiedMessage === index ? <FiCheck /> : <FiCopy />}<span>{copiedMessage === index ? "Copied" : "Copy"}</span></button></div>}</div>
         </article>)}{error && <div className="chat-error" role="alert"><span>{error === "Response stopped." ? "RESPONSE STOPPED" : "CONNECTION ISSUE"}</span><p>{error}</p></div>}<div ref={endRef} /></div>}
       </div>
-      {showLatestButton && workspaceHasMessages && <button type="button" className="chat-latest" onClick={() => { followLatestRef.current = true; setShowLatestButton(false); scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "auto" }); }}><FiChevronDown /> Latest messages</button>}
+      {showLatestButton && workspaceHasMessages && <button type="button" className="chat-latest" onClick={() => { followLatestRef.current = true; setShowLatestButton(false); scrollToLatest(); }}><FiChevronDown /> Latest messages</button>}
       <div className="chat-composer-wrap">{persistenceNotice && <p className="chat-persistence-notice" role="status">{persistenceNotice}</p>}<form className={`chat-composer ${isDraggingFiles ? "chat-composer-drop-active" : ""}`} onSubmit={(event) => { event.preventDefault(); send(); }} onDragOver={(event) => { event.preventDefault(); if (event.dataTransfer.types.includes("Files")) setIsDraggingFiles(true); }} onDragLeave={(event) => { if (event.currentTarget === event.target) setIsDraggingFiles(false); }} onDrop={handleFileDrop}>
         <>{attachments.length > 0 && <div className="chat-attachments">{attachments.map((a, i) => <div className="chat-attachment" key={i}><div className="chat-attachment-preview">{a.type.startsWith("image/") ? <img src={a.preview} alt={a.name} /> : <FiFile />}<button type="button" onClick={() => removeAttachment(i)} aria-label="Remove file"><FiX /></button></div><span className="chat-attachment-name">{a.name}</span></div>)}</div>}{attachmentNotice && <p className="chat-attachment-notice">{attachmentNotice}</p>}{attachmentError && <p className="chat-attachment-error" role="alert">{attachmentError}</p>}
         <div className="chat-composer-input"><textarea ref={textareaRef} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); send(); } }} placeholder={attachments.length ? "Add a message about your files..." : "Ask Jan anything..."} aria-label="Message Jan" rows="1" maxLength="4000" /></div>
