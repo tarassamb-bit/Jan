@@ -21,9 +21,17 @@ const MAX_IMAGE_DATA_URL_LENGTH = 4_200_000;
 const MAX_IMAGES_PER_MESSAGE = 3;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_REQUESTS = 20;
+const PROVIDER_TIMEOUT_MS = 45_000;
 const rateBuckets = new Map();
 
+function setSecurityHeaders(res) {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Cache-Control", "no-store");
+}
+
 function json(res, status, payload) {
+  setSecurityHeaders(res);
   res.status(status);
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   return res.json(payload);
@@ -53,6 +61,11 @@ function isRateLimited(req) {
   const recent = (rateBuckets.get(key) || []).filter((timestamp) => now - timestamp < RATE_LIMIT_WINDOW_MS);
   recent.push(now);
   rateBuckets.set(key, recent);
+  if (rateBuckets.size > 10_000) {
+    for (const [bucketKey, timestamps] of rateBuckets) {
+      if (!timestamps.length || now - timestamps[timestamps.length - 1] >= RATE_LIMIT_WINDOW_MS) rateBuckets.delete(bucketKey);
+    }
+  }
   return recent.length > RATE_LIMIT_REQUESTS;
 }
 
@@ -130,6 +143,8 @@ function providerError(payload, status) {
 
 async function fetchGroq({ messages, apiKey, model = DEFAULT_MODEL, stream = false, signal, preferences, memories }) {
   const request = createGroqRequest({ messages, model, stream, preferences, memories });
+  const timeout = AbortSignal.timeout(PROVIDER_TIMEOUT_MS);
+  const combinedSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -137,7 +152,7 @@ async function fetchGroq({ messages, apiKey, model = DEFAULT_MODEL, stream = fal
       "Content-Type": "application/json",
     },
     body: JSON.stringify(request),
-    signal,
+    signal: combinedSignal,
   });
   return response;
 }
@@ -246,6 +261,7 @@ export async function handleChat(req, res, { env = process.env, authenticate = a
       const controller = new AbortController();
       req.once?.("aborted", () => controller.abort());
       const upstream = await requestGroqStream({ messages, apiKey: env.GROQ_API_KEY, model, signal: controller.signal, preferences: req.body?.preferences, memories: req.body?.memories });
+      setSecurityHeaders(res);
       res.status(200);
       res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
       res.setHeader("Cache-Control", "no-cache, no-transform");

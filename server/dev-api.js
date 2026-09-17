@@ -21,11 +21,12 @@ export function localChatApi(env) {
             catch { res.statusCode = 400; res.end(JSON.stringify({ error: 'Request body must be valid JSON.' })); return; }
           }
           await handleChat(req, res, { env });
-        } catch {
+        } catch (error) {
           if (res.headersSent) { if (!res.writableEnded) res.end(); return; }
-          res.statusCode = 500;
-          res.setHeader('Content-Type', 'application/json');
-          if (!res.writableEnded) res.end(JSON.stringify({ error: 'Chat is temporarily unavailable.' }));
+          res.statusCode = error?.status >= 400 && error.status < 600 ? error.status : 500;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.setHeader('X-Content-Type-Options', 'nosniff');
+          if (!res.writableEnded) res.end(JSON.stringify({ code: error?.code, error: error?.message || 'Chat is temporarily unavailable.' }));
         }
       });
     },
