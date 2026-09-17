@@ -4,8 +4,17 @@ import { localChatApi } from "./server/dev-api.js";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
+  const runtimeEnv = {
+    ...env,
+    VITE_SUPABASE_URL: env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.SUPABASE_URL_2 || "",
+    VITE_SUPABASE_ANON_KEY: env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "",
+  };
 
   return {
+  define: {
+    "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(runtimeEnv.VITE_SUPABASE_URL),
+    "import.meta.env.VITE_SUPABASE_ANON_KEY": JSON.stringify(runtimeEnv.VITE_SUPABASE_ANON_KEY),
+  },
   build: {
     outDir: "dist/client",
     rollupOptions: {
