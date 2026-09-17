@@ -21,6 +21,7 @@ export async function consumeMessage({ user, db }) {
   const { data, error } = await db.rpc('consume_chat_message', { p_user_id: user.id });
   if (error) {
     if (error.message?.includes('DAILY_MESSAGE_LIMIT')) throw accessError(429, 'You have used your 100 messages for today. Your allowance resets at midnight UTC.', 'DAILY_MESSAGE_LIMIT');
+    if (error.code === 'PGRST202') throw accessError(503, 'Chat needs a database update before it can respond.', 'DATABASE_SETUP_REQUIRED');
     throw accessError(503, 'Usage verification is unavailable. Please try again later.', 'USAGE_UNAVAILABLE');
   }
   return data;

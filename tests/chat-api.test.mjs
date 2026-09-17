@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { consumeMessage } from "../server/access.js";
 import handler, { handleChat, ALLOWED_MODELS, compactMessages, createGroqRequest, MAX_COMPLETION_TOKENS, MAX_CONTEXT_CHARACTERS, requestGroqStream, validateMessages } from "../api/chat.js";
 
 test("accepts a valid local chat transcript", () => {
@@ -139,4 +140,11 @@ test("authenticates and consumes exactly one message for a nonstream response", 
     assert.equal(calls, 1);
     assert.deepEqual(JSON.parse(res.headers['X-Jan-Usage']), { messages: 1, uploads: 0 });
   } finally { globalThis.fetch = oldFetch; }
+});
+
+test("identifies the missing database quota function as a setup error", async () => {
+  await assert.rejects(
+    consumeMessage({ user: { id: "account-1" }, db: { rpc: async () => ({ error: { code: "PGRST202", message: "Function not found" } }) } }),
+    (error) => error.status === 503 && error.code === "DATABASE_SETUP_REQUIRED" && /database update/.test(error.message),
+  );
 });
