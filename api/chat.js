@@ -1,7 +1,22 @@
+import { authenticateRequest, consumeMessage } from "../server/access.js";
 export const DEFAULT_MODEL = "openai/gpt-oss-20b";
-export const ALLOWED_MODELS = ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"];
+// Chat-capable models from Groq's supported-model catalog. The Models API is
+// still checked at runtime, so a user only sees models enabled for their key.
+export const ALLOWED_MODELS = [
+  "openai/gpt-oss-20b",
+  "openai/gpt-oss-120b",
+  "qwen/qwen3.6-27b",
+  "qwen/qwen3.8-27b",
+  "groq/compound",
+  "groq/compound-mini",
+];
 const MAX_MESSAGES = 20;
 const MAX_CONTENT_LENGTH = 16_000;
+// Keep each provider request comfortably below the free Groq TPM allowance.
+// This is deliberately smaller than the UI transcript limit: older messages
+// remain saved in the conversation, but are not all sent on every turn.
+export const MAX_CONTEXT_CHARACTERS = 9_000;
+export const MAX_COMPLETION_TOKENS = 800;
 const MAX_IMAGE_DATA_URL_LENGTH = 4_200_000;
 const MAX_IMAGES_PER_MESSAGE = 3;
 const RATE_LIMIT_WINDOW_MS = 60_000;
@@ -41,23 +56,80 @@ function isRateLimited(req) {
   return recent.length > RATE_LIMIT_REQUESTS;
 }
 
-function createGroqRequest({ messages, model = DEFAULT_MODEL, stream = false }) {
+function preferencePrompt(preferences, memories) {
+  const instructions = typeof preferences?.custom_instructions === "string" ? preferences.custom_instructions.trim().slice(0, 800) : "";
+  const safeMemories = Array.isArray(memories) ? memories.filter((memory) => typeof memory === "string").slice(0, 12).map((memory) => memory.trim().slice(0, 180)).filter(Boolean) : [];
+  return [instructions && `User preferences: ${instructions}`, safeMemories.length && `Remember these user-provided facts when relevant: ${safeMemories.join(" | ")}`].filter(Boolean).join(" ");
+}
+
+function contentLength(content) {
+  if (typeof content === "string") return content.length;
+  if (!Array.isArray(content)) return 0;
+  return content.reduce((total, part) => total + (part?.type === "text" ? String(part.text || "").length : 0), 0);
+}
+
+function truncateContent(content, limit) {
+  if (typeof content === "string") return content.slice(0, limit);
+  if (!Array.isArray(content)) return content;
+  let remaining = limit;
+  return content.map((part) => {
+    if (part?.type !== "text") return part;
+    const text = String(part.text || "");
+    const next = text.slice(0, Math.max(0, remaining));
+    remaining -= next.length;
+    return { ...part, text: next };
+  }).filter((part) => part?.type !== "text" || part.text);
+}
+
+// Retain the most recent useful turns. The newest message is always included,
+// even if it has to be shortened, so a long chat cannot make a new prompt fail.
+export function compactMessages(messages, maxCharacters = MAX_CONTEXT_CHARACTERS) {
+  const compacted = [];
+  let used = 0;
+  for (const message of [...messages].reverse()) {
+    const size = contentLength(message.content);
+    const remaining = maxCharacters - used;
+    if (remaining <= 0) break;
+    if (size > remaining) {
+      compacted.unshift({ ...message, content: truncateContent(message.content, remaining) });
+      break;
+    }
+    compacted.unshift(message);
+    used += size;
+  }
+  return compacted;
+}
+
+export function createGroqRequest({ messages, model = DEFAULT_MODEL, stream = false, preferences, memories }) {
   const request = {
     model,
     messages: [
-      { role: "system", content: "You are Jan, a careful and accurate personal AI assistant. Give direct, well-structured answers. Distinguish facts from uncertainty, do not invent sources or file details, and ask a concise clarifying question when essential context is missing." },
-      ...messages,
+      { role: "system", content: `You are Jan, a careful and accurate personal AI assistant. Give direct, well-structured answers. Distinguish facts from uncertainty, do not invent sources or file details, and ask a concise clarifying question when essential context is missing. ${preferencePrompt(preferences, memories)}` },
+      ...compactMessages(messages),
     ],
     temperature: 0.35,
-    max_completion_tokens: 1600,
+    max_completion_tokens: MAX_COMPLETION_TOKENS,
   };
   if (stream) request.stream = true;
   if (model === "openai/gpt-oss-20b" || model === "openai/gpt-oss-120b") request.reasoning_effort = "medium";
   return request;
 }
 
-async function fetchGroq({ messages, apiKey, model = DEFAULT_MODEL, stream = false, signal }) {
-  const request = createGroqRequest({ messages, model, stream });
+function providerError(payload, status) {
+  const providerMessage = payload?.error?.message || "The AI provider rejected the request.";
+  const retryMatch = providerMessage.match(/try again in\s+([\d.]+)s/i);
+  const retryAfterSeconds = retryMatch ? Math.max(1, Math.ceil(Number(retryMatch[1]))) : null;
+  const error = new Error(status === 429
+    ? `Jan has reached its current Groq limit. Try again${retryAfterSeconds ? ` in ${retryAfterSeconds} seconds` : " shortly"}.`
+    : providerMessage);
+  error.status = status;
+  if (status === 429) error.code = "GROQ_RATE_LIMIT";
+  if (retryAfterSeconds) error.retryAfterSeconds = retryAfterSeconds;
+  return error;
+}
+
+async function fetchGroq({ messages, apiKey, model = DEFAULT_MODEL, stream = false, signal, preferences, memories }) {
+  const request = createGroqRequest({ messages, model, stream, preferences, memories });
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -70,15 +142,12 @@ async function fetchGroq({ messages, apiKey, model = DEFAULT_MODEL, stream = fal
   return response;
 }
 
-export async function requestGroq({ messages, apiKey, model = DEFAULT_MODEL }) {
-  const response = await fetchGroq({ messages, apiKey, model });
+export async function requestGroq({ messages, apiKey, model = DEFAULT_MODEL, preferences, memories }) {
+  const response = await fetchGroq({ messages, apiKey, model, preferences, memories });
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = payload?.error?.message || "The AI provider rejected the request.";
-    const error = new Error(message);
-    error.status = response.status;
-    throw error;
+    throw providerError(payload, response.status);
   }
 
   return {
@@ -87,13 +156,11 @@ export async function requestGroq({ messages, apiKey, model = DEFAULT_MODEL }) {
   };
 }
 
-export async function requestGroqStream({ messages, apiKey, model = DEFAULT_MODEL, signal }) {
-  const response = await fetchGroq({ messages, apiKey, model, stream: true, signal });
+export async function requestGroqStream({ messages, apiKey, model = DEFAULT_MODEL, signal, preferences, memories }) {
+  const response = await fetchGroq({ messages, apiKey, model, stream: true, signal, preferences, memories });
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    const error = new Error(payload?.error?.message || "The AI provider rejected the request.");
-    error.status = response.status;
-    throw error;
+    throw providerError(payload, response.status);
   }
   if (!response.body) throw new Error("The AI provider returned an empty stream.");
   return response;
@@ -135,15 +202,15 @@ export async function listAvailableModels(apiKey) {
   }
 }
 
-export default async function handler(req, res) {
+export async function handleChat(req, res, { env = process.env, authenticate = authenticateRequest, consume = consumeMessage } = {}) {
   const startedAt = Date.now();
   const requestId = req.headers["x-vercel-id"] || "local";
   console.log(JSON.stringify({ level: "info", msg: "chat_start", route: "/api/chat", requestId }));
 
   if (req.method === "GET") {
-    const models = await listAvailableModels(process.env.GROQ_API_KEY);
-    const preferred = process.env.GROQ_MODEL || DEFAULT_MODEL;
-    return json(res, 200, { configured: Boolean(process.env.GROQ_API_KEY), model: models.includes(preferred) ? preferred : models[0], models });
+    const models = await listAvailableModels(env.GROQ_API_KEY);
+    const preferred = env.GROQ_MODEL || DEFAULT_MODEL;
+    return json(res, 200, { configured: Boolean(env.GROQ_API_KEY), model: models.includes(preferred) ? preferred : models[0], models });
   }
 
   if (req.method !== "POST") {
@@ -151,7 +218,11 @@ export default async function handler(req, res) {
     return json(res, 405, { error: "Method not allowed." });
   }
 
-  if (!process.env.GROQ_API_KEY) {
+  let account;
+  try { account = await authenticate(req, env); }
+  catch (error) { return json(res, error.status || 503, { code: error.code, error: error.message }); }
+
+  if (!env.GROQ_API_KEY) {
     console.warn(JSON.stringify({ level: "warn", msg: "groq_not_configured", route: "/api/chat", requestId }));
     return json(res, 503, { code: "GROQ_NOT_CONFIGURED", error: "Groq is not connected yet." });
   }
@@ -162,31 +233,38 @@ export default async function handler(req, res) {
   if (!messages) return json(res, 400, { error: "Send between 1 and 20 valid chat messages, up to 16,000 characters each." });
 
   const requestedModel = req.body?.model;
-  const availableModels = await listAvailableModels(process.env.GROQ_API_KEY);
-  const configuredModel = process.env.GROQ_MODEL || DEFAULT_MODEL;
+  const availableModels = await listAvailableModels(env.GROQ_API_KEY);
+  const configuredModel = env.GROQ_MODEL || DEFAULT_MODEL;
   const model = requestedModel && availableModels.includes(requestedModel) ? requestedModel : availableModels.includes(configuredModel) ? configuredModel : availableModels[0];
   const containsImages = messages.some((message) => Array.isArray(message.content) && message.content.some((part) => part.type === "image_url"));
   if (containsImages && model !== "qwen/qwen3.8-27b") return json(res, 400, { error: "Photos require Qwen 3.8 Vision. Select that model and try again." });
 
   try {
+    const usage = await consume(account);
+    res.setHeader("X-Jan-Usage", JSON.stringify(usage));
     if (req.body?.stream === true) {
       const controller = new AbortController();
       req.once?.("aborted", () => controller.abort());
+      const upstream = await requestGroqStream({ messages, apiKey: env.GROQ_API_KEY, model, signal: controller.signal, preferences: req.body?.preferences, memories: req.body?.memories });
       res.status(200);
       res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
       res.setHeader("Cache-Control", "no-cache, no-transform");
       res.setHeader("Connection", "keep-alive");
       res.setHeader("X-Accel-Buffering", "no");
-      const upstream = await requestGroqStream({ messages, apiKey: process.env.GROQ_API_KEY, model, signal: controller.signal });
+
       await pipeStream({ upstream, req, res });
       console.log(JSON.stringify({ level: "info", msg: "chat_stream_done", route: "/api/chat", requestId, ms: Date.now() - startedAt }));
       return;
     }
-    const answer = await requestGroq({ messages, apiKey: process.env.GROQ_API_KEY, model });
+    const answer = await requestGroq({ messages, apiKey: env.GROQ_API_KEY, model, preferences: req.body?.preferences, memories: req.body?.memories });
     console.log(JSON.stringify({ level: "info", msg: "chat_done", route: "/api/chat", requestId, ms: Date.now() - startedAt }));
     return json(res, 200, answer);
   } catch (error) {
     console.error(JSON.stringify({ level: "error", msg: "chat_failed", route: "/api/chat", requestId, status: error.status || 500, error: error.message, ms: Date.now() - startedAt }));
-    return json(res, error.status >= 400 && error.status < 500 ? error.status : 502, { error: error.message || "The AI provider is unavailable." });
+    if (res.headersSent) { if (!res.writableEnded) res.end(); return; }
+    if (error.retryAfterSeconds) res.setHeader("Retry-After", String(error.retryAfterSeconds));
+    return json(res, error.status >= 400 && error.status < 600 ? error.status : 502, { code: error.code, retry_after_seconds: error.retryAfterSeconds, error: error.message || "The AI provider is unavailable." });
   }
 }
+
+export default function handler(req, res) { return handleChat(req, res); }

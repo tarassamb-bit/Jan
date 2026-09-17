@@ -1,0 +1,66 @@
+.docs-page{min-height:0;padding:132px 24px 112px;background:#f8f8f6}
+.docs-shell{max-width:1120px;margin:auto}
+.docs-hero{align-items:flex-start;padding:0;text-align:left}
+.docs-kicker{color:#747b81;font-size:11px;font-weight:700;letter-spacing:.14em}
+.docs-title{justify-content:flex-start;gap:15px;margin-top:20px}
+.docs-title img{width:44px;height:44px}
+.docs-title h1{font-size:clamp(42px,5.5vw,72px);line-height:1.04;letter-spacing:-.045em}
+.docs-hero>p{max-width:670px;margin:20px 0 27px;color:#596168;font-size:19px;line-height:1.5}
+.docs-search{width:min(650px,100%);height:58px;background:#fff;border-color:#cfd4d8;border-radius:11px;box-shadow:0 3px 12px #18253108}
+.docs-search input{font-size:15px}
+.docs-start{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(240px,.75fr);gap:42px;align-items:center;margin-top:56px;padding:38px 44px;color:#fff;background:#14253b;border-radius:16px}
+.docs-start .docs-kicker{color:#a9d3ff}
+.docs-start h2{max-width:550px;margin:14px 0;font-family:"PP Editorial New",Georgia,serif;font-size:clamp(30px,3.5vw,45px);font-weight:400;line-height:1.12}
+.docs-start p{max-width:530px;margin:0;color:#cfdae5;font-size:15px;line-height:1.65}
+.docs-start-link{display:inline-flex;align-items:center;gap:12px;margin-top:25px;padding:11px 16px;color:#122033;background:#c7e2ff;border-radius:8px;font-size:14px;font-weight:700}
+.docs-start-link:hover{background:#fff}
+.docs-start-steps{display:grid;gap:0;border-top:1px solid #ffffff3a}
+.docs-start-steps span{padding:16px 0;border-bottom:1px solid #ffffff3a;color:#e8f3ff;font-size:14px}
+.docs-section{margin-top:76px}
+.docs-section-head>span{color:#747b81;font-size:13px}
+.docs-categories{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 22px}
+.docs-categories button{padding:9px 14px;border:1px solid #d5d9dd;border-radius:8px;background:#fff;color:#4a525a;cursor:pointer;font-size:13px;font-weight:600}
+.docs-categories button:hover,.docs-categories button:focus-visible{border-color:#111}
+.docs-categories button.active{border-color:#152437;background:#152437;color:#fff}
+.docs-products{width:100%;margin:0;gap:14px}
+.docs-product-card{min-height:252px;padding:24px;background:#fff;border-color:#e1e4e5;border-radius:12px}
+.docs-icon{width:40px;height:40px;border-radius:9px}
+.docs-icon svg{width:21px;height:21px}
+.docs-card-category{margin-top:22px;color:#6e7781;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}
+.docs-product-card h3{margin:8px 0 7px;font-size:20px;line-height:1.25;letter-spacing:-.035em}
+.docs-product-card>p{font-size:14px;line-height:1.55}
+.docs-card-foot{padding-top:16px;border:0}
+.docs-card-foot b{font-size:13px}
+.docs-layout{grid-template-columns:1fr 1fr;gap:20px}
+.docs-panel{padding:26px;background:#fff;border-color:#e1e4e5;border-radius:12px}
+.docs-path{min-height:68px;padding:12px;border-color:#e7e9ea;border-radius:8px}
+.docs-faqs details{padding:16px 0}
+.docs-faqs summary{font-size:14px}
+.docs-empty{margin:20px auto 0;background:#fff}
+.article-sidebar-guides{display:grid;gap:4px;margin-top:32px;padding-top:28px;border-top:1px solid #e1e4e5}
+.article-sidebar-guides p{margin:0 0 8px;color:#999;font-size:10px;font-weight:700;letter-spacing:.12em}
+.article-sidebar-guides a{padding:7px 0;color:#626b73;font-size:13px}
+.article-sidebar-guides a:hover{color:#111}
+.article-mobile-nav{display:none}
+.docs-article-page .article-head{padding-bottom:52px}
+.docs-article-page .article-section{padding:48px 0}
+:is(.docs-page,.docs-article-page) :is(a,button,input,summary):focus-visible{outline:3px solid #438de3;outline-offset:3px}
+@media(max-width:760px){
+  .docs-page{padding:112px 20px 75px}
+  .docs-hero{padding:0}
+  .docs-title{align-items:flex-start;gap:10px}
+  .docs-title img{width:35px;height:35px;margin-top:5px}
+  .docs-title h1{font-size:44px;line-height:1.04}
+  .docs-hero>p{max-width:100%;margin:18px 0 24px;font-size:17px;line-height:1.5}
+  .docs-search{width:100%}
+  .docs-start{grid-template-columns:1fr;gap:25px;margin-top:38px;padding:29px 25px}
+  .docs-start h2{font-size:36px}
+  .docs-section{margin-top:58px}
+  .docs-section-head h2{font-size:30px}
+  .docs-products{grid-template-columns:1fr;width:100%;margin:0}
+  .docs-product-card{min-height:220px}
+  .docs-layout{grid-template-columns:1fr}
+  .article-mobile-nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:28px;padding:17px;background:#f7f8f8;border:1px solid #e1e4e5;border-radius:10px}
+  .article-mobile-nav strong{flex-basis:100%;font-size:12px}
+  .article-mobile-nav a{padding:7px 9px;background:#fff;border:1px solid #e1e4e5;border-radius:6px;font-size:12px}
+}
