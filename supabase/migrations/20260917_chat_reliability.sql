@@ -1,6 +1,7 @@
 begin;
 
 alter table public.project_messages add column if not exists attachments jsonb not null default '[]'::jsonb;
+alter table public.user_settings add column if not exists developer_mode boolean not null default false;
 
 -- Clients can read counters; only trusted functions and insert triggers change them.
 drop policy if exists "Users manage own daily usage" on public.daily_usage;

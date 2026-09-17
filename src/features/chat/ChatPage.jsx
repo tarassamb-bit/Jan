@@ -233,7 +233,27 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
     const { error } = await supabase.auth.updateUser({ current_password: currentPassword, password: newPassword });
     return error ? { error: error.message || "Couldn’t change your password. Please try again." } : { error: null };
   };
-  const saveAccountSettings = (nextSettings) => { const normalizedSettings = { ...nextSettings, language: "auto" }; setAccountSettings(normalizedSettings); writeSettings(user?.id || user?.email, normalizedSettings); if (!user?.is_demo) supabase.from("user_settings").upsert({ user_id: user.id, ...normalizedSettings, updated_at: new Date().toISOString() }).then(({ error: saveError }) => { if (saveError) setPersistenceNotice("Your settings are saved on this device, but could not be synced yet."); }); };
+  const saveAccountSettings = (nextSettings) => {
+    const normalizedSettings = { ...nextSettings, language: "auto" };
+    setAccountSettings(normalizedSettings);
+    writeSettings(user?.id || user?.email, normalizedSettings);
+    if (user?.is_demo) return;
+    const payload = {
+      user_id: user.id,
+      appearance: normalizedSettings.appearance,
+      language: "auto",
+      response_streaming: normalizedSettings.response_streaming,
+      custom_instructions: normalizedSettings.custom_instructions,
+      developer_mode: normalizedSettings.developer_mode,
+      updated_at: new Date().toISOString(),
+    };
+    supabase.from("user_settings").upsert(payload).then(({ error: saveError }) => {
+      if (saveError) setPersistenceNotice(saveError.code === "42703" || saveError.code === "PGRST204"
+        ? "Settings sync needs a database update. Your change is saved on this device."
+        : "Your settings are saved on this device, but could not be synced yet.");
+      else setPersistenceNotice("");
+    });
+  };
   const addMemory = async (content) => { const text = String(content || "").trim().slice(0, 220); if (!text || memories.some((memory) => memory.content.toLowerCase() === text.toLowerCase())) return true; const localMemory = { id: globalThis.crypto?.randomUUID?.() || `memory-${Date.now()}`, content: text, created_at: new Date().toISOString() }; if (user?.is_demo) { const next = [localMemory, ...memories]; setMemories(next); writeMemories(user.id || user.email, next); return true; } const { data, error: memoryError } = await supabase.from("user_memories").insert({ user_id: user.id, content: text }).select().single(); if (memoryError || !data) { setPersistenceNotice("Jan couldn’t save that memory yet. Please try again."); return false; } const next = [data, ...memories]; setMemories(next); writeMemories(user.id, next); return true; };
   const deleteMemory = async (id) => { if (!user?.is_demo) { const { error } = await supabase.from("user_memories").delete().eq("id", id); if (error) { setPersistenceNotice("Jan couldn’t delete that memory yet. Please try again."); return; } } const next = memories.filter((memory) => memory.id !== id); setMemories(next); writeMemories(user?.id || user?.email, next); };
   const refreshUsage = async () => {
