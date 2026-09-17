@@ -8,6 +8,10 @@ export default defineConfig(({ mode }) => {
     ...env,
     VITE_SUPABASE_URL: env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.SUPABASE_URL_2 || "",
     VITE_SUPABASE_ANON_KEY: env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "",
+    SUPABASE_URL: env.SUPABASE_URL || env.SUPABASE_URL_2 || env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.SUPABASE_URL_2 || "",
+    SUPABASE_SERVICE_KEY: env.SUPABASE_SERVICE_KEY || env.SUPABASE_SERVICE_KEY_2 || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_KEY_2 || "",
+    GROQ_API_KEY: env.GROQ_API_KEY || process.env.GROQ_API_KEY || "",
+    GROQ_MODEL: env.GROQ_MODEL || env.GROQ_MODEL_2 || process.env.GROQ_MODEL || process.env.GROQ_MODEL_2 || "",
   };
 
   return {
@@ -39,6 +43,6 @@ export default defineConfig(({ mode }) => {
       clientFiles: ["./src/main.jsx"],
     },
   },
-  plugins: [react(), localChatApi(env)],
+  plugins: [react(), localChatApi(runtimeEnv)],
   };
 });
