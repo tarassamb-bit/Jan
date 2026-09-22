@@ -1,11 +1,11 @@
-import { requestChat, buildChatMessages } from "./transport.js";
+import { requestChat, buildChatMessages } from "./chat-transport.js";
 import { useConversationMessages } from "./useConversationMessages.js";
-import { serializeAttachments, restoreAttachments, loadProjectSources } from "./files.js";
-import { PROJECT_FILE_LIMIT, PROJECT_FILE_MAX_BYTES, TEXT_FILE_TYPES, TEXT_FILE_EXTENSION, safeProjectFileName, compressProjectFile, MAX_ATTACHMENT_BYTES, MAX_IMAGE_BYTES, MAX_ATTACHMENT_CHARS, MAX_ATTACHMENTS, MAX_IMAGES_PER_MESSAGE, VISION_MODEL, clampAttachmentText, extractAttachment } from "./files.js";
-import { DEMO_ACCOUNT, DEMO_USER_KEY, DEMO_CONVERSATIONS_KEY, PROJECTS_STORAGE_KEY, FREE_DAILY_MESSAGE_LIMIT, FREE_DAILY_UPLOAD_LIMIT, DEFAULT_SETTINGS, readDemoUser, readDemoConversations, writeDemoConversations, readProjects, writeProjects, usageStorageKey, readDailyUsage, writeDailyUsage, settingsStorageKey, readSettings, writeSettings, memoriesStorageKey, readMemories, writeMemories, demoMessagesKey, readDemoMessages, makeConversationTitle } from "./storage.js";
+import { serializeAttachments, restoreAttachments, loadProjectSources } from "./chat-file-storage.js";
+import { PROJECT_FILE_LIMIT, PROJECT_FILE_MAX_BYTES, TEXT_FILE_TYPES, TEXT_FILE_EXTENSION, safeProjectFileName, compressProjectFile, MAX_ATTACHMENT_BYTES, MAX_IMAGE_BYTES, MAX_ATTACHMENT_CHARS, MAX_ATTACHMENTS, MAX_IMAGES_PER_MESSAGE, VISION_MODEL, clampAttachmentText, extractAttachment } from "./chat-file-storage.js";
+import { DEMO_ACCOUNT, DEMO_USER_KEY, DEMO_CONVERSATIONS_KEY, PROJECTS_STORAGE_KEY, FREE_DAILY_MESSAGE_LIMIT, FREE_DAILY_UPLOAD_LIMIT, DEFAULT_SETTINGS, readDemoUser, readDemoConversations, writeDemoConversations, readProjects, writeProjects, usageStorageKey, readDailyUsage, writeDailyUsage, settingsStorageKey, readSettings, writeSettings, memoriesStorageKey, readMemories, writeMemories, demoMessagesKey, readDemoMessages, makeConversationTitle } from "./chat-storage.js";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "../../lib/supabase.js";
-import SettingsModalV2 from "../../components/SettingsModal.jsx";
+import SettingsModalV2 from "../../components/settings/settings-modal.jsx";
 import {
   FaApple,
   FaDiscord,

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { FiCheck, FiChevronRight, FiCpu, FiDatabase, FiFile, FiLock, FiLogOut, FiPlus, FiSearch, FiSettings, FiSliders, FiTrash2, FiX } from "react-icons/fi";
-import "./SettingsModal.css";
+import "./settings-modal.css";
 
 const SECTIONS = [
   { id: "General", icon: FiSettings },

@@ -1,5 +1,5 @@
-import { DEMO_ACCOUNT, DEMO_USER_KEY, readDemoUser } from "./features/chat/storage.js";
-import { DOC_PRODUCTS, DOC_PATHS, DOC_FAQS, DOC_ARTICLES } from "./features/docs/data.jsx";
+import { DEMO_ACCOUNT, DEMO_USER_KEY, readDemoUser } from "./features/chat/chat-storage.js";
+import { DOC_PRODUCTS, DOC_PATHS, DOC_FAQS, DOC_ARTICLES } from "./features/docs/documentation-content.jsx";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "./lib/supabase.js";
 import {

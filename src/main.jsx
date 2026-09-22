@@ -2,8 +2,8 @@ import React, { Component, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
-import { App } from "./App.jsx";
-import "./styles.css";
+import { App } from "./JanApp.jsx";
+import "./styles/global.css";
 import "./styles/docs.css";
 import "./styles/chat.css";
 

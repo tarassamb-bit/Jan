@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { requestChat, buildChatMessages } from '../src/features/chat/transport.js';
-import { serializeAttachments, restoreAttachments, loadProjectSources } from '../src/features/chat/files.js';
+import { requestChat, buildChatMessages } from '../src/features/chat/chat-transport.js';
+import { serializeAttachments, restoreAttachments, loadProjectSources } from '../src/features/chat/chat-file-storage.js';
 
 const client = { auth: { getSession: async () => ({ data: { session: { access_token: 'session-token' } } }) } };
 const user = { id: 'alice' };

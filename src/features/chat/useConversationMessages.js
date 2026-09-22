@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { restoreAttachments } from './files.js';
-import { readDemoMessages } from './storage.js';
+import { restoreAttachments } from './chat-file-storage.js';
+import { readDemoMessages } from './chat-storage.js';
 
 export function useConversationMessages({ conversationId, user, client, creatingConversationRef, setMessages, setMessagesLoading, setError }) {
   useEffect(() => {

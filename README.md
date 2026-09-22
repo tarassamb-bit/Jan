@@ -9,6 +9,27 @@ npm install
 npm run dev
 ```
 
+## Project layout
+
+The code is grouped by responsibility so folder and file names describe their contents:
+
+```text
+src/
+  components/       shared UI components
+    settings/       account and workspace settings UI
+  features/chat/    chat page, storage, files, and API transport
+  features/docs/    documentation content and routes
+  styles/           global and feature-specific styles
+  lib/              shared service clients
+api/                deployed API functions
+server/             local development server helpers
+worker/             sites/worker deployment code
+scripts/            build and deployment scripts
+tests/              automated tests
+public/assets/      static images, icons, and fonts
+supabase/           database schema migrations
+```
+
 ## Production build
 
 ```bash
