@@ -1,4 +1,4 @@
-export const DEMO_ACCOUNT = { name: "Alex", email: "demo@jan.local", password: "jan-demo-2026" };
+export const DEMO_ACCOUNT = { name: "Alex", email: "demo@jan.local" };
 export const DEMO_USER_KEY = "jan-demo-user";
 export const DEMO_CONVERSATIONS_KEY = "jan-demo-conversations";
 export const PROJECTS_STORAGE_KEY = "jan-projects";
