@@ -55,3 +55,22 @@ test('reports an interrupted stream while keeping the partial text for the calle
   await assert.rejects(requestChat({ client, user, messages: input, preferences: { response_streaming: true }, onDelta: (text) => { partial = text; }, fetchImpl: async () => new Response('data: {"choices":[{"delta":{"content":"Partial"}}]}\n\n', { headers: { 'content-type': 'text/event-stream' } }) }), /interrupted/);
   assert.equal(partial, 'Partial');
 });
+
+test('passes the web-search choice and keeps live source links in the saved response', async () => {
+  let request;
+  const sources = encodeURIComponent(JSON.stringify([{ title: 'Example News', url: 'https://example.com/news' }]));
+  const response = new Response(JSON.stringify({ content: 'The announcement was today.' }), { headers: { 'content-type': 'application/json', 'X-Jan-Web-Sources': sources } });
+  const content = await requestChat({ client, user, messages: input, webSearch: true, preferences: { response_streaming: false }, fetchImpl: async (_, options) => { request = options; return response; } });
+  assert.equal(JSON.parse(request.body).webSearch, true);
+  assert.match(content, /Links found by search/);
+  assert.match(content, /https:\/\/example.com\/news/);
+});
+
+test('adds source links after a streamed response completes', async () => {
+  const sources = encodeURIComponent(JSON.stringify([{ title: 'Live report', url: 'https://example.com/live' }]));
+  const response = new Response('data: {"choices":[{"delta":{"content":"Current answer"}}]}\n\ndata: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream', 'X-Jan-Web-Sources': sources } });
+  let latest = '';
+  const content = await requestChat({ client, user, messages: input, onDelta: (value) => { latest = value; }, fetchImpl: async () => response });
+  assert.equal(content, latest);
+  assert.match(content, /Current answer[\s\S]*Links found by search[\s\S]*https:\/\/example.com\/live/);
+});

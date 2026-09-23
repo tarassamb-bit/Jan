@@ -22,6 +22,7 @@ import { LuBot, LuBrainCircuit, LuChevronsUpDown, LuRocket } from "react-icons/l
 import {
   FiArrowLeft,
   FiArrowRight,
+  FiArrowUp,
   FiBarChart2,
   FiBookOpen,
   FiCheck,
@@ -32,6 +33,7 @@ import {
   FiCpu,
   FiFile,
   FiFolder,
+  FiGlobe,
   FiGitBranch,
   FiGrid,
   FiHeart,
@@ -44,6 +46,7 @@ import {
   FiPaperclip,
   FiPlus,
   FiSearch,
+  FiRefreshCw,
   FiSend,
   FiSettings,
   FiShield,
@@ -57,9 +60,9 @@ const MessageResponse = lazy(() => import("../../components/ai-elements/MessageR
 
 
 const CHAT_STARTERS = [
-  { eyebrow: "PLAN", title: "Plan a focused workday", copy: "Turn priorities into a calm, realistic schedule." },
-  { eyebrow: "LEARN", title: "Explain a difficult idea simply", copy: "Break down a complex topic without the jargon." },
-  { eyebrow: "WRITE", title: "Help me draft a thoughtful message", copy: "Find the right words, tone, and structure." },
+  { label: "Build an execution plan", prompt: "You are a senior chief-of-staff and product operations advisor. I will give you an objective, constraints, and available resources. Before proposing a plan, ask up to five high-value clarifying questions if critical information is missing. Then create a 90-day execution plan in this format: 1) executive objective and measurable success criteria, 2) strategic priorities ranked by impact, 3) milestone plan by week, 4) accountable owner and dependencies for each milestone, 5) risk register with mitigation, 6) decision log, and 7) the five actions I should take this week. Be specific, commercially realistic, and concise.\n\nObjective / context: [paste here]" },
+  { label: "Make a decision", prompt: "You are an independent executive decision analyst. Analyse the decision below without assuming that my preferred option is correct. First identify missing facts and state your assumptions. Then compare the strongest three options in a decision matrix covering strategic fit, cost, upside, downside, execution difficulty, reversibility, and key risks. Finish with: a ranked recommendation, a 30-day validation plan, the decision I should make now, and the one piece of evidence most likely to change that recommendation. Use clear business language and challenge weak reasoning.\n\nDecision to analyse: [paste here]" },
+  { label: "Draft a professional message", prompt: "You are a senior executive communications advisor. Draft a high-stakes professional message using the information below. If the audience, desired outcome, relationship context, or constraints are unclear, ask concise clarifying questions before drafting. Then provide: 1) a recommended subject line, 2) a polished message of 120–180 words, 3) a shorter version under 75 words, and 4) a brief explanation of the tone and persuasion choices. The message must be direct, credible, respectful, and action-oriented; avoid generic AI language, filler, and exaggerated claims.\n\nAudience: [who will receive it]\nDesired outcome: [what should happen next]\nContext / facts to include: [paste here]\nTone or constraints: [optional]" },
 ];
 
 function ProjectManageModal({ project, conversations, onClose, onRenameProject, onDeleteProject, onRenameChat, onDeleteChat, onMoveConversation }) {
@@ -71,6 +74,34 @@ function RenameConversationDialog({ conversation, onSave, onClose }) {
   return <div className="project-create-overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><form className="project-create-dialog" onSubmit={(event) => { event.preventDefault(); onSave(title); }} role="dialog" aria-modal="true" aria-labelledby="rename-conversation-title"><button type="button" className="project-create-close" onClick={onClose} aria-label="Close rename dialog"><FiX /></button><p>CHAT ACTIONS</p><h2 id="rename-conversation-title">Rename chat</h2><span>Choose a clear title so you can find it later.</span><label><span className="sr-only">Chat title</span><input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} maxLength="120" /></label><button type="submit" disabled={!title.trim()}>Save name <FiArrowRight /></button></form></div>;
 }
 
+function formatChatTimestamp(value) {
+  const date = new Date(value);
+  const parts = [date.getFullYear(), date.getMonth() + 1, date.getDate(), date.getHours(), date.getMinutes(), date.getSeconds()];
+  return `${parts[0]}${String(parts[1]).padStart(2, "0")}${String(parts[2]).padStart(2, "0")}${String(parts[3]).padStart(2, "0")}${String(parts[4]).padStart(2, "0")}${String(parts[5]).padStart(2, "0")}`;
+}
+
+function chatUrl(conversation, user) {
+  if (!conversation || !user?.id) return "/chat";
+  return `/chat/${formatChatTimestamp(conversation.created_at || conversation.updated_at)}-${conversation.id.slice(0, 8)}`;
+}
+
+function groupChatsByDate(chats, now = new Date()) {
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const groups = { Today: [], Yesterday: [], Earlier: [] };
+  for (const chat of chats) {
+    const date = new Date(chat.updated_at || chat.created_at);
+    const day = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+    const age = Number.isNaN(day) ? 2 : Math.round((today - day) / 86400000);
+    groups[age <= 0 ? "Today" : age === 1 ? "Yesterday" : "Earlier"].push(chat);
+  }
+  return Object.entries(groups).filter(([, items]) => items.length);
+}
+
+const PROJECT_COLORS = ["#536fa8", "#8b659a", "#4b8a79", "#bd7951", "#9c727b"];
+function projectColor(id) {
+  return PROJECT_COLORS[[...(id || "")].reduce((hash, char) => hash + char.charCodeAt(0), 0) % PROJECT_COLORS.length];
+}
+
 function SidebarConversation({ conversation, active, pinned, menuOpen, onOpen, onMenu, onRename, onPin, onDelete }) {
   return <div className={`chat-conversation ${active ? "active" : ""}`}><button type="button" className="chat-conversation-select" onClick={onOpen} aria-label={`Open ${conversation.title}`}><FiMessageCircle /><span><strong>{conversation.title}</strong><small>{new Date(conversation.updated_at).toLocaleDateString()}</small></span></button><button type="button" className="chat-conversation-more" onClick={onMenu} aria-label={`Conversation actions for ${conversation.title}`} aria-expanded={menuOpen}><FiMoreHorizontal /></button>{menuOpen && <div className="chat-conversation-menu" role="menu"><button type="button" role="menuitem" onClick={onRename}><FiEdit2 />Rename</button><button type="button" role="menuitem" onClick={onPin}><FiEdit2 />{pinned ? "Unpin" : "Pin"}</button><button type="button" className="chat-conversation-delete" role="menuitem" onClick={onDelete}><FiTrash2 />Delete</button></div>}</div>;
 }
@@ -79,7 +110,7 @@ function SidebarSectionHeader({ children, expanded, onToggle }) {
   return <button type="button" className="chat-section-toggle" onClick={onToggle} aria-expanded={expanded}><span>{children}</span><FiChevronDown /></button>;
 }
 
-const FEATURED_GROQ_MODELS = ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.8-27b", "groq/compound"];
+const FEATURED_GROQ_MODELS = ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"];
 
 function ModelPicker({ models, selected, details, open, more, pickerRef, onToggle, onMore, onSelect }) {
   const available = models.length ? models : ["openai/gpt-oss-20b"];
@@ -107,12 +138,13 @@ function ModelPicker({ models, selected, details, open, more, pickerRef, onToggl
   </div>;
 }
 
-export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand, Link }) {
+export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand }) {
   const { user, loading: authLoading } = useUser();
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showLatestButton, setShowLatestButton] = useState(false);
   const [error, setError] = useState("");
@@ -125,12 +157,16 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
   const [showMoreModels, setShowMoreModels] = useState(false);
   const [conversationMenuId, setConversationMenuId] = useState(null);
   const [renameTarget, setRenameTarget] = useState(null);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+  const skipTitleBlurRef = useRef(false);
   const [sidebarSections, setSidebarSections] = useState({ pinned: true, projects: true, chats: true });
   const [workspaceView, setWorkspaceView] = useState("chat");
   const [chatSearchOpen, setChatSearchOpen] = useState(false);
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [fullSearchResults, setFullSearchResults] = useState([]);
   const [fullSearchStatus, setFullSearchStatus] = useState("idle");
+  const searchRunRef = useRef(0);
   const [projects, setProjects] = useState([]);
   const [activeProjectId, setActiveProjectId] = useState(null);
   const [projectNotice, setProjectNotice] = useState("");
@@ -159,9 +195,13 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
   const [recentsHover, setRecentsHover] = useState(false);
   const [recentsPos, setRecentsPos] = useState({ top: 0, left: 0 });
   const recentsRef = useRef(null);
+  const [projectsHover, setProjectsHover] = useState(false);
+  const [projectsPos, setProjectsPos] = useState({ top: 0, left: 0 });
+  const projectsRef = useRef(null);
   const endRef = useRef(null);
   const scrollRef = useRef(null);
   const followLatestRef = useRef(true);
+  const autoScrollingRef = useRef(false);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
   const projectFileInputRef = useRef(null);
@@ -188,18 +228,25 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
     if (user.is_demo) {
       const demoConversations = readDemoConversations();
       setConversations(demoConversations);
-      setActiveConversationId((current) => current || demoConversations[0]?.id || null);
       return;
     }
     const loadConversations = async () => {
       const { data } = await supabase.from("conversations").select("*").eq("user_id", user.id).order("updated_at", { ascending: false });
       if (data) {
         setConversations(data);
-        setActiveConversationId((current) => current || data[0]?.id || null);
       }
     };
     loadConversations();
   }, [user]);
+
+  // A saved chat keeps a short readable URL: creation time plus its permanent ID prefix.
+  useEffect(() => {
+    if (!user || !conversations.length) return;
+    const match = window.location.pathname.match(/^\/chat\/(\d{14})-([a-z0-9]{8})$/i);
+    if (!match) return;
+    const conversation = conversations.find((item) => item.id.startsWith(match[2]) && formatChatTimestamp(item.created_at || item.updated_at) === match[1]);
+    if (conversation) setActiveConversationId(conversation.id);
+  }, [conversations, user]);
 
   useEffect(() => {
     if (!user) return;
@@ -310,8 +357,6 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
     fetch("/api/chat").then((r) => r.json()).then((p) => { if (active) { setConnection(p.configured ? "ready" : "missing"); if (p.models) setModelList(p.models); if (p.model) setSelectedModel(p.model); } }).catch(() => { if (active) setConnection("missing"); });
     return () => { active = false; };
   }, []);
-  useEffect(() => { setFullSearchResults([]); setFullSearchStatus("idle"); }, [chatSearchQuery, chatSearchOpen]);
-
   // Close model menu on outside click
   useEffect(() => {
     if (!modelMenuOpen) return;
@@ -320,6 +365,13 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
     return () => document.removeEventListener("mousedown", handler);
   }, [modelMenuOpen]);
   useEffect(() => { window.localStorage.setItem("jan-sidebar-collapsed", String(sidebarCollapsed)); }, [sidebarCollapsed]);
+  useEffect(() => {
+    const narrow = window.matchMedia("(max-width: 900px)");
+    const expandForDrawer = () => { if (narrow.matches) setSidebarCollapsed(false); };
+    expandForDrawer();
+    narrow.addEventListener("change", expandForDrawer);
+    return () => narrow.removeEventListener("change", expandForDrawer);
+  }, []);
   useEffect(() => {
     const openProjectActions = (event) => { if (event.target.closest?.('[aria-label="Project actions"]')) setProjectManageOpen(true); };
     document.addEventListener("click", openProjectActions);
@@ -352,7 +404,8 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
   const createConversation = useCallback(async (title) => {
     if (!user) return null;
     if (user.is_demo) {
-      const conversation = { id: globalThis.crypto?.randomUUID?.() || `demo-${Date.now()}`, title: title || "New conversation", updated_at: new Date().toISOString() };
+      const createdAt = new Date().toISOString();
+      const conversation = { id: globalThis.crypto?.randomUUID?.() || `demo-${Date.now()}`, title: title || "New conversation", created_at: createdAt, updated_at: createdAt };
       setConversations((previous) => { const next = [conversation, ...previous]; writeDemoConversations(next); return next; });
       return conversation;
     }
@@ -384,7 +437,7 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
     setConversations((prev) => prev.map((c) => c.id === conversationId ? { ...c, title, updated_at: new Date().toISOString() } : c));
   }, [user]);
 
-  const send = async (contentOverride) => {
+  const send = async (contentOverride, { reuseLastUser = false } = {}) => {
     const content = (typeof contentOverride === "string" ? contentOverride : draft).trim();
     if ((!content && !attachments.length) || sendLock.current || messagesLoading) return;
     if (user?.is_demo) { setError("Sign in to send messages. Live AI is unavailable in the local demo."); return; }
@@ -406,7 +459,7 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
     let savedUser = false;
     const assistantId = crypto.randomUUID();
     const firstMessage = messages.length === 0;
-    const activeAttachments = serializeAttachments(attachments);
+    const activeAttachments = reuseLastUser ? [] : serializeAttachments(attachments);
     const displayContent = content || `Uploaded ${attachments.length} file${attachments.length === 1 ? "" : "s"}`;
     const started = performance.now();
     try {
@@ -417,18 +470,25 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
         if (!current()) return;
         creatingConversationRef.current = convId;
         setActiveConversationId(convId);
+        navigate(chatUrl(conversation, user));
       }
-      const userMsg = await saveMessage(convId, "user", displayContent, activeAttachments);
+      const userMsg = reuseLastUser ? messages.filter((message) => message.role === "user").at(-1) : await saveMessage(convId, "user", displayContent, activeAttachments);
       if (!userMsg) throw new Error("Couldn’t save this message. Your draft and files have been kept.");
       savedUser = true;
       if (!current()) return;
-      const hydrated = { ...userMsg, attachments: restoreAttachments(userMsg.attachments) };
-      setMessages((previous) => [...previous, hydrated, { id: assistantId, role: "assistant", content: "", streaming: true }]);
-      setDraft(""); setAttachments([]); setAttachmentError(""); setAttachmentNotice(""); setPersistenceNotice("");
+      const hydrated = { ...userMsg, attachments: restoreAttachments(userMsg.attachments || []) };
+      // Keep the new user message and the beginning of Jan's reply in view.
+      autoScrollingRef.current = true;
+      setMessages((previous) => reuseLastUser ? [...previous, { id: assistantId, role: "assistant", content: "", streaming: true }] : [...previous, hydrated, { id: assistantId, role: "assistant", content: "", streaming: true }]);
+      window.requestAnimationFrame(() => scrollToLatest());
+      window.setTimeout(() => scrollToLatest(), 120);
+      window.setTimeout(() => { autoScrollingRef.current = false; }, 250);
+      if (!reuseLastUser) { setDraft(""); setAttachments([]); setAttachmentError(""); setAttachmentNotice(""); setWebSearchEnabled(false); }
+      setPersistenceNotice("");
       if (activeAttachments.length) recordUsage("uploads", activeAttachments.length);
       await requestChat({
-        client: supabase, user, messages: buildChatMessages([...messages, hydrated]), model: selectedModel,
-        preferences: accountSettings, memories: memories.map((memory) => memory.content), signal: controller.signal,
+        client: supabase, user, messages: buildChatMessages(reuseLastUser ? (messages.at(-1)?.role === "assistant" ? messages.slice(0, -1) : messages) : [...messages, hydrated]), model: selectedModel,
+        preferences: accountSettings, memories: memories.map((memory) => memory.content), webSearch: webSearchEnabled, signal: controller.signal,
         onUsage: (usage) => { if (current()) setDailyUsage(usage); },
         onDelta: (text) => {
           streamedContent = text;
@@ -474,8 +534,8 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
     abortControllerRef.current.abort();
   };
 
-  const switchConversation = (convId) => { cancelChatRequest(); setMessages([]); setMessagesLoading(true); followLatestRef.current = true; setShowLatestButton(false); setActiveConversationId(convId); setSidebarOpen(false); setConversationMenuId(null); setError(""); setAttachmentError(""); setAttachmentNotice(""); setPersistenceNotice(""); };
-  const newConversation = () => { cancelChatRequest(); setMessagesLoading(false); followLatestRef.current = true; setShowLatestButton(false); setActiveConversationId(null); setMessages([]); setDraft(""); setAttachments([]); setError(""); setAttachmentError(""); setAttachmentNotice(""); setPersistenceNotice(""); setSidebarOpen(false); textareaRef.current?.focus(); };
+  const switchConversation = (convId) => { const conversation = conversations.find((item) => item.id === convId); cancelChatRequest(); setMessages([]); setMessagesLoading(true); followLatestRef.current = true; setShowLatestButton(false); setActiveConversationId(convId); if (conversation) navigate(chatUrl(conversation, user)); setSidebarOpen(false); setConversationMenuId(null); setError(""); setAttachmentError(""); setAttachmentNotice(""); setPersistenceNotice(""); };
+  const newConversation = () => { cancelChatRequest(); navigate("/chat"); setMessagesLoading(false); followLatestRef.current = true; setShowLatestButton(false); setActiveConversationId(null); setMessages([]); setDraft(""); setWebSearchEnabled(false); setAttachments([]); setError(""); setAttachmentError(""); setAttachmentNotice(""); setPersistenceNotice(""); setSidebarOpen(false); textareaRef.current?.focus(); };
   const deleteConversation = async (convId) => { setConversationMenuId(null); if (user?.is_demo) { setConversations((previous) => { const next = previous.filter((conversation) => conversation.id !== convId); writeDemoConversations(next); return next; }); window.localStorage.removeItem(demoMessagesKey(convId)); } else { const { error: deleteError } = await supabase.from("conversations").delete().eq("id", convId); if (deleteError) { setError("Couldn’t delete this conversation. It was kept."); return; } setConversations((prev) => prev.filter((c) => c.id !== convId)); } if (activeConversationId === convId) newConversation(); };
   const persistProjects = (update) => { setProjects((previous) => { const next = typeof update === "function" ? update(previous) : update; writeProjects(user?.id || user?.email, next); return next; }); };
   const createProject = () => { setProjectName(""); setProjectCreateOpen(true); };
@@ -611,9 +671,18 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
       setConversations((previous) => previous.map((conversation) => conversation.id === convId ? { ...conversation, title: nextTitle } : conversation));
     }
   };
-  const tryFullChatSearch = async () => {
-    const query = chatSearchQuery.trim().toLowerCase();
+  const commitTitleEdit = () => {
+    if (skipTitleBlurRef.current) { skipTitleBlurRef.current = false; return; }
+    setEditingTitle(false);
+    const conversation = conversations.find((item) => item.id === activeConversationId);
+    if (conversation && titleDraft.trim() && titleDraft.trim() !== conversation.title) {
+      void renameConversation(conversation.id, conversation.title, titleDraft);
+    }
+  };
+  const tryFullChatSearch = async (searchText = chatSearchQuery) => {
+    const query = (typeof searchText === "string" ? searchText : chatSearchQuery).trim().toLowerCase();
     if (!query) return;
+    const run = ++searchRunRef.current;
     setFullSearchStatus("loading");
     try {
       let matches = [];
@@ -623,7 +692,7 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
           .slice(0, 1)
           .map((message) => ({ ...conversation, match: message.content })));
       } else if (conversations.length) {
-        const { data, error: searchError } = await supabase.from("messages").select("conversation_id, content").in("conversation_id", conversations.map((conversation) => conversation.id)).ilike("content", `%${chatSearchQuery.trim()}%`);
+        const { data, error: searchError } = await supabase.from("messages").select("conversation_id, content").in("conversation_id", conversations.map((conversation) => conversation.id)).ilike("content", `%${searchText.trim()}%`);
         if (searchError) throw searchError;
         const seen = new Set();
         matches = (data || []).flatMap((message) => {
@@ -634,21 +703,32 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
           return [{ ...conversation, match: message.content }];
         });
       }
-      setFullSearchResults(matches);
-      setFullSearchStatus("complete");
+      if (run === searchRunRef.current) { setFullSearchResults(matches); setFullSearchStatus("complete"); }
     } catch {
-      setFullSearchStatus("error");
+      if (run === searchRunRef.current) setFullSearchStatus("error");
     }
   };
+  useEffect(() => {
+    searchRunRef.current += 1;
+    setFullSearchResults([]);
+    setFullSearchStatus("idle");
+    if (!chatSearchOpen || !chatSearchQuery.trim()) return;
+    const timer = window.setTimeout(() => { void tryFullChatSearch(chatSearchQuery); }, 350);
+    return () => window.clearTimeout(timer);
+  }, [chatSearchOpen, chatSearchQuery, conversations, user]);
   const copyMessage = async (content, index) => { await navigator.clipboard.writeText(content); setCopiedMessage(index); window.setTimeout(() => setCopiedMessage(null), 1800); };
+  const editAndResend = (content) => { setDraft(content); window.requestAnimationFrame(() => textareaRef.current?.focus()); };
+  const regenerateResponse = () => {
+    if (loading) return;
+    const lastUserMessage = [...messages].reverse().find((message) => message.role === "user");
+    if (lastUserMessage?.content) void send(lastUserMessage.content, { reuseLastUser: true });
+  };
 
   const MODEL_DISPLAY = {
     "openai/gpt-oss-20b": { name: "GPT‑OSS 20B", badge: "Recommended", description: "Fast and capable for everyday tasks" },
     "openai/gpt-oss-120b": { name: "GPT‑OSS 120B", badge: "Best quality", description: "For complex analysis and deeper reasoning" },
     "qwen/qwen3.6-27b": { name: "Qwen 3.6 27B", badge: "Reasoning", description: "Thoughtful answers for detailed work" },
     "qwen/qwen3.8-27b": { name: "Qwen 3.8 27B", badge: "Images", description: "Use photos and visual questions" },
-    "groq/compound": { name: "Groq Compound", badge: "Tools", description: "For research and tool-assisted tasks" },
-    "groq/compound-mini": { name: "Groq Compound Mini", badge: "Fast", description: "Quick answers with built-in tools" },
   };
 
   const addFiles = async (filesToAdd) => {
@@ -705,6 +785,8 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
 
   const pinnedConversations = conversations.filter((c) => pinnedIds.includes(c.id));
   const unpinnedConversations = conversations.filter((c) => !pinnedIds.includes(c.id));
+  const recentsByDate = groupChatsByDate(unpinnedConversations);
+  const recentFlyoutGroups = groupChatsByDate(unpinnedConversations.slice(0, 10));
   const activeProjectForScroll = projects.find((project) => project.id === activeProjectId) || projects[0];
   const activeProjectChatForScroll = activeProjectForScroll?.chats?.find((chat) => chat.id === activeProjectChatId);
   useEffect(() => {
@@ -745,7 +827,8 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
   ];
   const visiblePlugins = plugins.filter((plugin) => `${plugin.name} ${plugin.copy}`.toLowerCase().includes(hubSearch.toLowerCase()));
   const matchingConversations = conversations.filter((conversation) => conversation.title.toLowerCase().includes(chatSearchQuery.trim().toLowerCase()));
-  const displayedSearchResults = matchingConversations.length ? matchingConversations : fullSearchResults;
+  const titleMatchIds = new Set(matchingConversations.map((conversation) => conversation.id));
+  const displayedSearchResults = [...matchingConversations, ...fullSearchResults.filter((conversation) => !titleMatchIds.has(conversation.id))];
 
   return <main className={`chat-page ${sidebarOpen ? "sidebar-open" : ""} ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
     <button className="chat-sidebar-backdrop" type="button" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} />
@@ -756,43 +839,37 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
     <aside className="chat-sidebar">
       <div className="chat-sidebar-brand"><Brand /><div className="chat-sidebar-brand-actions">{sidebarCollapsed ? null : <button className="chat-sidebar-search" type="button" onClick={() => { setChatSearchOpen(true); setSidebarOpen(false); }} aria-label="Search chats" title="Search chats"><FiSearch /></button>}<button className="chat-sidebar-collapse" type="button" onClick={() => setSidebarCollapsed((collapsed) => !collapsed)} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}>{sidebarCollapsed ? <FiChevronRight /> : <FiChevronLeft />}</button><button className="chat-sidebar-close" type="button" onClick={() => setSidebarOpen(false)} aria-label="Close navigation"><FiX /></button></div></div>
       <div className="chat-shortcuts">
-        <button className="new-chat" type="button" onClick={() => { setWorkspaceView("chat"); newConversation(); }}><FiPlus /><span>New Chat</span><kbd>Ctrl N</kbd></button>
-        {sidebarCollapsed && <button type="button" className="chat-shortcut chat-shortcut-search" onClick={() => { setChatSearchOpen(true); setSidebarOpen(false); }} aria-label="Search chats"><FiSearch /><span>Search</span><kbd>⌘K</kbd></button>}
-        <button type="button" className="chat-shortcut" onClick={createProject}><FiFolder /><span>New Projects</span></button>
+        <button className="new-chat" type="button" title={sidebarCollapsed ? "New chat" : undefined} onClick={() => { setWorkspaceView("chat"); newConversation(); }}><FiPlus /><span>New Chat</span><kbd>Ctrl N</kbd></button>
+        {sidebarCollapsed && <button type="button" className="chat-shortcut chat-shortcut-search" title="Search chats" onClick={() => { setChatSearchOpen(true); setSidebarOpen(false); }} aria-label="Search chats"><FiSearch /><span>Search</span><kbd>⌘K</kbd></button>}
+        {sidebarCollapsed ? <div className="chat-projects-trigger" ref={projectsRef} onMouseEnter={() => { const rect = projectsRef.current?.getBoundingClientRect(); if (rect) setProjectsPos({ top: rect.top, left: rect.right }); setProjectsHover(true); }} onMouseLeave={() => setProjectsHover(false)} onFocus={() => { const rect = projectsRef.current?.getBoundingClientRect(); if (rect) setProjectsPos({ top: rect.top, left: rect.right }); setProjectsHover(true); }} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setProjectsHover(false); }} onKeyDown={(event) => { if (event.key === "Escape") setProjectsHover(false); }}>
+          <button type="button" className="chat-shortcut" title="My projects" aria-label="My projects" aria-expanded={projectsHover}><FiFolder /><span>My Projects</span></button>
+          {projectsHover && <div className="chat-recents-flyout chat-projects-flyout" role="dialog" aria-label="My projects" style={{ top: projectsPos.top, left: projectsPos.left }}><p>My Projects</p>{projects.length ? projects.map((project) => <button type="button" className="chat-recents-item chat-project-flyout-item" key={project.id} onClick={() => { openProject(project.id); setProjectsHover(false); }}><i className="chat-project-dot" style={{ backgroundColor: projectColor(project.id) }} aria-hidden="true" /><strong>{project.name}</strong></button>) : <span className="chat-projects-empty">No projects yet</span>}<button type="button" className="chat-flyout-create" onClick={() => { createProject(); setProjectsHover(false); }}><FiPlus /> New project</button></div>}
+        </div> : <button type="button" className="chat-shortcut" onClick={createProject}><FiFolder /><span>New project</span></button>}
+        {sidebarCollapsed && <div className="chat-recents-trigger" ref={recentsRef} onMouseEnter={() => { const rect = recentsRef.current?.getBoundingClientRect(); if (rect) setRecentsPos({ top: rect.top, left: rect.right }); setRecentsHover(true); }} onMouseLeave={() => setRecentsHover(false)} onFocus={() => { const rect = recentsRef.current?.getBoundingClientRect(); if (rect) setRecentsPos({ top: rect.top, left: rect.right }); setRecentsHover(true); }} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setRecentsHover(false); }} onKeyDown={(event) => { if (event.key === "Escape") setRecentsHover(false); }}>
+          <button type="button" className="chat-shortcut" title="Recent chats" aria-label="Recent chats" aria-expanded={recentsHover}><FiMessageCircle /><span>Recents</span></button>
+          {recentsHover && <div className="chat-recents-flyout" role="dialog" aria-label="Recent chats" style={{ top: recentsPos.top, left: recentsPos.left }}><p>Recents</p>{recentFlyoutGroups.length ? recentFlyoutGroups.map(([label, items]) => <div className="chat-date-group" key={label}><span className="chat-date-label">{label}</span>{items.map((conv) => <button type="button" className="chat-recents-item" key={conv.id} onClick={() => { setWorkspaceView("chat"); switchConversation(conv.id); setRecentsHover(false); }}><strong>{conv.title}</strong></button>)}</div>) : <span className="chat-projects-empty">No recent chats yet</span>}</div>}
+        </div>}
       </div>
       {sidebarCollapsed ? <>
-        <nav className="chat-sidebar-nav">
-          <div className="chat-nav-items">
-            <div className="chat-recents-trigger" ref={recentsRef} onMouseEnter={() => { const rect = recentsRef.current?.getBoundingClientRect(); if (rect) setRecentsPos({ top: rect.top, left: rect.right + 6 }); setRecentsHover(true); }} onMouseLeave={() => setRecentsHover(false)}>
-              <button type="button" className="chat-nav-item" onClick={() => { setChatSearchOpen(true); setSidebarOpen(false); }}><FiMessageCircle /><span>Recents</span><FiChevronRight className="recents-chevron" /></button>
-              {recentsHover && unpinnedConversations.length > 0 && <div className="chat-recents-flyout" role="menu" style={{ top: recentsPos.top, left: recentsPos.left }}>
-                {unpinnedConversations.slice(0, 8).map((conv) => <button type="button" className="chat-recents-item" key={conv.id} onClick={() => { setWorkspaceView("chat"); switchConversation(conv.id); setRecentsHover(false); }}><FiMessageCircle /><span><strong>{conv.title}</strong><small>{new Date(conv.updated_at).toLocaleDateString()}</small></span></button>)}</div>}
-            </div>
-          </div>
-        </nav>
         {pinnedConversations.length > 0 && <div className="chat-sidebar-section"><span className="chat-sidebar-label">PINNED</span>{pinnedConversations.map((conv) => <div className={`chat-conversation ${workspaceView === "chat" && conv.id === activeConversationId ? "active" : ""}`} key={conv.id}><button type="button" className="chat-conversation-select" onClick={() => { setWorkspaceView("chat"); switchConversation(conv.id); }} aria-label={`Open ${conv.title}`}><FiMessageCircle /><span><strong>{conv.title}</strong><small>{new Date(conv.updated_at).toLocaleDateString()}</small></span></button><button type="button" className="chat-conversation-pin" onClick={() => togglePin(conv.id)} aria-label="Unpin conversation"><FiEdit2 /></button><button type="button" className="chat-conversation-more" onClick={() => setConversationMenuId((current) => current === conv.id ? null : conv.id)} aria-label={`Conversation actions for ${conv.title}`} aria-expanded={conversationMenuId === conv.id}><FiMoreHorizontal /></button>{conversationMenuId === conv.id && <div className="chat-conversation-menu" role="menu"><button type="button" role="menuitem" onClick={() => renameConversation(conv.id, conv.title)}><FiEdit2 />Rename</button><button type="button" role="menuitem" onClick={() => togglePin(conv.id)}><FiEdit2 />Unpin</button><button type="button" className="chat-conversation-delete" role="menuitem" onClick={() => deleteConversation(conv.id)}><FiTrash2 />Delete</button></div>}</div>)}</div>}
-        {projects.length > 0 && <div className="chat-sidebar-section"><span className="chat-sidebar-label">PROJECTS</span>{projects.map((project) => {
-          const isOpen = workspaceView === "project" && activeProject?.id === project.id;
-          return <div className="chat-project-group" key={project.id}><button type="button" className={`chat-project-link ${isOpen ? "active" : ""}`} onClick={() => openProject(project.id)}><FiFolder /><span><strong>{project.name}</strong></span></button></div>;
-        })}</div>}
       </> : <>
         <nav>
           {pinnedConversations.length > 0 && <section className="chat-sidebar-group"><SidebarSectionHeader expanded={sidebarSections.pinned} onToggle={() => setSidebarSections((current) => ({ ...current, pinned: !current.pinned }))}>Pinned</SidebarSectionHeader>{sidebarSections.pinned && pinnedConversations.map((conv) => <SidebarConversation key={conv.id} conversation={conv} active={workspaceView === "chat" && conv.id === activeConversationId} pinned menuOpen={conversationMenuId === conv.id} onOpen={() => { setWorkspaceView("chat"); switchConversation(conv.id); }} onMenu={() => setConversationMenuId((current) => current === conv.id ? null : conv.id)} onRename={() => renameConversation(conv.id, conv.title)} onPin={() => togglePin(conv.id)} onDelete={() => deleteConversation(conv.id)} />)}</section>}
-          <section className="chat-sidebar-group"><SidebarSectionHeader expanded={sidebarSections.projects} onToggle={() => setSidebarSections((current) => ({ ...current, projects: !current.projects }))}>Projects</SidebarSectionHeader>{sidebarSections.projects && (projects.length ? projects.map((project) => <button type="button" className={`chat-project-link ${workspaceView === "project" && activeProject?.id === project.id ? "active" : ""}`} key={project.id} onClick={() => openProject(project.id)}><FiFolder /><span><strong>{project.name}</strong></span></button>) : <p className="chat-sidebar-empty">No projects yet</p>)}</section>
-          <section className="chat-sidebar-group"><SidebarSectionHeader expanded={sidebarSections.chats} onToggle={() => setSidebarSections((current) => ({ ...current, chats: !current.chats }))}>Chats</SidebarSectionHeader>{sidebarSections.chats && unpinnedConversations.map((conv) => <SidebarConversation key={conv.id} conversation={conv} active={workspaceView === "chat" && conv.id === activeConversationId} pinned={false} menuOpen={conversationMenuId === conv.id} onOpen={() => { setWorkspaceView("chat"); switchConversation(conv.id); }} onMenu={() => setConversationMenuId((current) => current === conv.id ? null : conv.id)} onRename={() => renameConversation(conv.id, conv.title)} onPin={() => togglePin(conv.id)} onDelete={() => deleteConversation(conv.id)} />)}</section>
+          <section className="chat-sidebar-group"><SidebarSectionHeader expanded={sidebarSections.projects} onToggle={() => setSidebarSections((current) => ({ ...current, projects: !current.projects }))}>Projects</SidebarSectionHeader>{sidebarSections.projects && (projects.length ? projects.map((project) => <button type="button" className={`chat-project-link ${workspaceView === "project" && activeProject?.id === project.id ? "active" : ""}`} key={project.id} onClick={() => openProject(project.id)}><FiFolder style={{ color: projectColor(project.id) }} /><span><strong>{project.name}</strong></span></button>) : <p className="chat-sidebar-empty">No projects yet</p>)}</section>
+          <section className="chat-sidebar-group"><SidebarSectionHeader expanded={sidebarSections.chats} onToggle={() => setSidebarSections((current) => ({ ...current, chats: !current.chats }))}>Chats</SidebarSectionHeader>{sidebarSections.chats && recentsByDate.map(([label, items]) => <div className="chat-date-group" key={label}><span className="chat-date-label">{label}</span>{items.map((conv) => <SidebarConversation key={conv.id} conversation={conv} active={workspaceView === "chat" && conv.id === activeConversationId} pinned={false} menuOpen={conversationMenuId === conv.id} onOpen={() => { setWorkspaceView("chat"); switchConversation(conv.id); }} onMenu={() => setConversationMenuId((current) => current === conv.id ? null : conv.id)} onRename={() => renameConversation(conv.id, conv.title)} onPin={() => togglePin(conv.id)} onDelete={() => deleteConversation(conv.id)} />)}</div>)}</section>
         </nav>
       </>}
       <div className="chat-sidebar-spacer" />
-      {sidebarCollapsed && <button type="button" className="chat-nav-item chat-bottom-settings" onClick={() => { setSettingsOpen(true); setSidebarOpen(false); }} aria-label="Open settings"><FiSettings /><span>Settings</span></button>}
+      {sidebarCollapsed && <button type="button" className="chat-nav-item chat-bottom-settings" title="Settings" onClick={() => { setSettingsOpen(true); setSidebarOpen(false); }} aria-label="Open settings"><FiSettings /><span>Settings</span></button>}
       <div className="chat-profile"><button className="chat-profile-settings" type="button" onClick={() => { setSettingsOpen(true); setSidebarOpen(false); }} aria-label="Open account settings"><span>{userDisplayName.charAt(0).toUpperCase()}</span><div><strong>{userDisplayName}</strong><small>{user.email}</small></div></button><button type="button" onClick={signOut} aria-label="Log out"><FiLogOut /></button></div>
     </aside>
     <section className={`chat-workspace ${workspaceHasMessages ? "chat-workspace-thread" : "chat-workspace-empty"}`}>
-      <header className="chat-topbar"><div className="chat-topbar-title"><button className="chat-menu" type="button" onClick={() => setSidebarOpen(true)} aria-label="Open navigation"><FiMenu /></button>{(workspaceView === "chat" || workspaceView === "project-chat") && <div><strong>{workspaceView === "project-chat" ? activeProjectChat?.title || "Project chat" : conversationTitle}</strong><small>{workspaceView === "project-chat" ? activeProject?.name : "Saved automatically"}</small></div>}</div><div className="chat-topbar-actions"><span className={`chat-header-connection connection-${connection}`}><i />{connectionLabel}</span><Link href="/" aria-label="Back to website"><FiX /></Link></div></header>
+      <header className="chat-topbar"><div className="chat-topbar-title"><button className="chat-menu" type="button" onClick={() => setSidebarOpen(true)} aria-label="Open navigation"><FiMenu /></button>{(workspaceView === "chat" || workspaceView === "project-chat") && <div>{workspaceView === "chat" && activeConversationId ? editingTitle ? <input className="chat-title-input" autoFocus value={titleDraft} maxLength={120} aria-label="Chat title" onChange={(event) => setTitleDraft(event.target.value)} onBlur={commitTitleEdit} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); if (event.key === "Escape") { skipTitleBlurRef.current = true; event.currentTarget.blur(); setEditingTitle(false); } }} /> : <button type="button" className="chat-title-button" title="Rename chat" aria-label={`Rename ${conversationTitle}`} onClick={() => { skipTitleBlurRef.current = false; setTitleDraft(conversationTitle); setEditingTitle(true); }}><strong>{conversationTitle}</strong><FiEdit2 aria-hidden="true" /></button> : <strong>{workspaceView === "project-chat" ? activeProjectChat?.title || "Project chat" : conversationTitle}</strong>}<small>{workspaceView === "project-chat" ? activeProject?.name : "Saved automatically"}</small></div>}</div><div className="chat-topbar-actions"><span className={`chat-header-connection connection-${connection}`}><i />{connectionLabel}</span></div></header>
       {chatSearchOpen && <div className="chat-search-overlay" role="dialog" aria-modal="true" aria-label="Search chats"><div className="chat-search-panel"><div className="chat-search-input"><FiSearch /><input autoFocus value={chatSearchQuery} onChange={(event) => setChatSearchQuery(event.target.value)} placeholder="Search chats" aria-label="Search chats" /><button type="button" onClick={() => { setChatSearchOpen(false); setChatSearchQuery(""); }} aria-label="Close chat search"><FiX /></button></div><p>{fullSearchStatus === "complete" && !matchingConversations.length ? "FULL SEARCH" : "CHATS"}</p>{displayedSearchResults.length ? <div className="chat-search-results">{displayedSearchResults.map((conversation) => <button type="button" key={conversation.id} onClick={() => { setWorkspaceView("chat"); switchConversation(conversation.id); setChatSearchOpen(false); setChatSearchQuery(""); }}><FiMessageCircle /><span><strong>{conversation.title}</strong>{conversation.match && <small className="chat-search-snippet">{conversation.match}</small>}</span><small>{new Date(conversation.updated_at).toLocaleDateString()}</small></button>)}</div> : chatSearchQuery.trim() ? <div className="chat-search-empty">{fullSearchStatus === "loading" ? "Searching every conversation…" : fullSearchStatus === "complete" ? "No matches in your conversations." : fullSearchStatus === "error" ? "Full search is unavailable. Try again." : <><span>No chat titles match “{chatSearchQuery.trim()}”.</span><button type="button" onClick={tryFullChatSearch}>Try full search</button><small>Search for this word in every conversation.</small></>}</div> : <div className="chat-search-empty">Start typing to search your chats.</div>}</div></div>}
-      {workspaceView === "chat" ? <><div className="chat-scroll" ref={scrollRef} onScroll={(event) => { const node = event.currentTarget; const nearBottom = node.scrollHeight - node.scrollTop - node.clientHeight < 100; const wasFollowing = followLatestRef.current; followLatestRef.current = nearBottom; setShowLatestButton(!nearBottom && messages.length > 0); if (nearBottom && !wasFollowing) window.requestAnimationFrame(() => scrollToLatest()); }}>
-        {messagesLoading ? <div className="chat-empty" role="status">Loading conversation…</div> : !messages.length ? <section className="chat-empty"><h1>What can I help with?</h1><div className="chat-starters">{CHAT_STARTERS.map((starter) => <button type="button" key={starter.title} onClick={() => { setDraft(starter.title); textareaRef.current?.focus(); }}><FiArrowRight aria-hidden="true" /><span>{starter.title}</span></button>)}</div>{error && <div className="chat-error" role="alert"><strong>Couldn’t start this chat</strong><p>{error}</p></div>}</section> : <div className="chat-thread" role="log" aria-live="polite" aria-relevant="additions text">{messages.map((message, index) => <article className={`chat-message chat-message-${message.role}`} key={message.id || `${message.role}-${index}`} aria-label={`${message.role === "assistant" ? "Jan" : "You"} message`}>
+      {workspaceView === "chat" ? <><div className="chat-scroll" ref={scrollRef} onScroll={(event) => { if (autoScrollingRef.current) return; const node = event.currentTarget; const nearBottom = node.scrollHeight - node.scrollTop - node.clientHeight < 100; const wasFollowing = followLatestRef.current; followLatestRef.current = nearBottom; setShowLatestButton(!nearBottom && messages.length > 0); if (nearBottom && !wasFollowing) window.requestAnimationFrame(() => scrollToLatest()); }}>
+        {messagesLoading ? <div className="chat-empty" role="status">Loading conversation…</div> : !messages.length ? <section className="chat-empty"><h1>What can I help with?</h1><p className="chat-empty-description">Start with a goal, decision, or draft.</p><div className="chat-starters">{CHAT_STARTERS.map((starter) => <button type="button" key={starter.label} onClick={() => { setDraft(starter.prompt); textareaRef.current?.focus(); }}><FiArrowRight aria-hidden="true" /><span>{starter.label}</span></button>)}</div>{error && <div className="chat-error" role="alert"><strong>Couldn’t start this chat</strong><p>{error}</p></div>}</section> : <div className="chat-thread" role="log" aria-live="polite" aria-relevant="additions text">{messages.map((message, index) => <article className={`chat-message chat-message-${message.role}`} key={message.id || `${message.role}-${index}`} aria-label={`${message.role === "assistant" ? "Jan" : "You"} message`}>
           {message.role === "assistant" && <span className="chat-avatar"><img src="/assets/logo-jan.svg" alt="Jan" /></span>}
-          <div className="chat-message-body"><div className="chat-message-meta"><strong>{message.role === "assistant" ? "Jan" : userDisplayName}</strong><span>{message.role === "assistant" ? message.streaming ? "Writing" : "Personal assistant" : "You"}</span></div>{message.attachments && message.attachments.length > 0 && <div className="chat-message-attachments">{message.attachments.map((a, i) => <div className="chat-msg-attachment" key={i}>{a.type?.startsWith("image/") && a.preview ? <img src={a.preview} alt={a.name} /> : <span className="chat-msg-file"><FiFile />{a.name}</span>}</div>)}</div>}{message.role === "assistant" ? message.streaming && !message.content ? <div className="chat-streaming-wait" aria-label="Jan is thinking"><i /><i /><i /><span>Jan is thinking</span></div> : <div className={message.streaming ? "chat-streaming-copy" : ""}><Suspense fallback={<p className="chat-response-loading">Formatting response…</p>}><MessageResponse>{message.content}</MessageResponse></Suspense></div> : <p className="chat-user-copy">{message.content}</p>}{message.role === "assistant" && !message.streaming && <div className="chat-message-actions"><button type="button" onClick={() => copyMessage(message.content, index)} aria-label="Copy response">{copiedMessage === index ? <FiCheck /> : <FiCopy />}<span>{copiedMessage === index ? "Copied" : "Copy"}</span></button></div>}</div>
+          <div className="chat-message-body"><div className="chat-message-meta"><strong>{message.role === "assistant" ? "Jan" : userDisplayName}</strong><span>{message.role === "assistant" ? message.streaming ? "Writing" : "Personal assistant" : "You"}</span></div>{message.attachments && message.attachments.length > 0 && <div className="chat-message-attachments">{message.attachments.map((a, i) => <div className="chat-msg-attachment" key={i}>{a.type?.startsWith("image/") && a.preview ? <img src={a.preview} alt={a.name} /> : <span className="chat-msg-file"><FiFile />{a.name}</span>}</div>)}</div>}{message.role === "assistant" ? message.streaming && !message.content ? <div className="chat-streaming-wait" aria-label="Jan is thinking"><i /><i /><i /><span>Jan is thinking</span></div> : <div className={message.streaming ? "chat-streaming-copy" : ""}><Suspense fallback={<p className="chat-response-loading">Formatting response…</p>}><MessageResponse>{message.content}</MessageResponse></Suspense></div> : <p className="chat-user-copy">{message.content}</p>}{message.role === "user" && <div className="chat-message-actions"><button type="button" onClick={() => editAndResend(message.content)} aria-label="Edit message in composer" title="Edit in composer"><FiEdit2 /></button></div>}{message.role === "assistant" && !message.streaming && <div className="chat-message-actions"><button type="button" onClick={() => copyMessage(message.content, index)} aria-label="Copy response" title={copiedMessage === index ? "Copied" : "Copy response"}>{copiedMessage === index ? <FiCheck /> : <FiCopy />}</button>{index === messages.length - 1 && <button type="button" onClick={regenerateResponse} aria-label="Regenerate response" title="Regenerate response" disabled={loading}><FiRefreshCw /></button>}</div>}</div>
         </article>)}{error && <div className="chat-error" role="alert"><span>{error === "Response stopped." ? "RESPONSE STOPPED" : "CONNECTION ISSUE"}</span><p>{error}</p></div>}<div ref={endRef} /></div>}
       </div>
       {showLatestButton && workspaceHasMessages && <button type="button" className="chat-latest" onClick={() => { followLatestRef.current = true; setShowLatestButton(false); scrollToLatest(); }}><FiChevronDown /> Latest messages</button>}
@@ -802,10 +879,11 @@ export default function ChatPage({ useUser, navigate, requestAuth, Header, Brand
         <div className="chat-composer-footer">
           <div className="chat-composer-tools">
             {!loading && <button type="button" className="chat-attach-btn" onClick={() => fileInputRef.current?.click()} aria-label="Add photos, PDFs, or files" title="Add photos, PDFs, or files"><FiPlus /><span className="chat-attach-label">Add files</span></button>}
+            <button type="button" className={`chat-web-toggle ${webSearchEnabled ? "active" : ""}`} onClick={() => setWebSearchEnabled((enabled) => !enabled)} aria-label={webSearchEnabled ? "Turn off web search for the next message" : "Search the web with the next message"} aria-pressed={webSearchEnabled} title={webSearchEnabled ? "Web search on for the next message" : "Search the web with the next message"}><FiGlobe /><span>Web</span></button>
             <ModelPicker models={modelList} selected={selectedModel} details={MODEL_DISPLAY} open={modelMenuOpen} more={showMoreModels} pickerRef={modelMenuRef} onToggle={() => setModelMenuOpen((current) => !current)} onMore={setShowMoreModels} onSelect={(id) => { setSelectedModel(id); setModelMenuOpen(false); }} />
             <input ref={fileInputRef} type="file" multiple accept="image/*,.txt,.md,.csv,.json,.js,.ts,.jsx,.tsx,.py,.html,.css,.pdf" onChange={handleFileSelect} hidden />
           </div>
-          <div className="chat-composer-send"><kbd>{loading ? "Stop" : "↵ to send"}</kbd>{loading ? <button type="button" className="chat-stop-text" onClick={stopGenerating} aria-label="Stop response">Stop</button> : <button type="submit" disabled={messagesLoading || (!draft.trim() && !attachments.length)} aria-label="Send message"><FiSend /></button>}</div>
+          <div className="chat-composer-send"><kbd>{loading ? "Stop" : "↵ to send"}</kbd>{loading ? <button type="button" className="chat-stop-text" onClick={stopGenerating} aria-label="Stop response" title="Stop generating"><span /></button> : <button type="submit" className="chat-send-control" disabled={messagesLoading || (!draft.trim() && !attachments.length)} aria-label="Send message" title="Send message"><FiArrowUp /></button>}</div>
         </div></>
       </form><small>Jan can make mistakes. Check important information.</small></div></> : workspaceView === "project" && activeProject ? <section className="project-workspace project-overview">
         <header className="project-heading"><div><p>PROJECT</p><h1><FiMessageCircle />{activeProject.name}</h1></div><div className="project-heading-actions"><button type="button" className="project-share" onClick={() => setProjectNotice("Sharing is coming soon in this prototype.")}><FiUpload /> Share</button><button type="button" aria-label="Project actions"><FiMoreHorizontal /></button></div></header>

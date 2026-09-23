@@ -450,7 +450,7 @@ export function App() {
   }, [path]);
   const page = useMemo(() => PAGE_DATA[path], [path]);
   if (path === "/") return <Home />;
-  if (path === "/chat") return <Suspense fallback={<main className="chat-gate" role="status">Opening Jan…</main>}><ChatPage useUser={useUser} navigate={navigate} requestAuth={requestAuth} Header={Header} Brand={Brand} Link={Link} /></Suspense>;
+  if (path === "/chat" || /^\/chat\/\d{14}-[a-z0-9]{8}$/i.test(path)) return <Suspense fallback={<main className="chat-gate" role="status">Opening Jan…</main>}><ChatPage useUser={useUser} navigate={navigate} requestAuth={requestAuth} Header={Header} Brand={Brand} Link={Link} /></Suspense>;
   if (path === "/docs") return <DocsPage />;
   if (path === "/research") return <ResearchPage />;
   if (DOC_ARTICLES[path]) return <DocArticlePage article={DOC_ARTICLES[path]} />;
