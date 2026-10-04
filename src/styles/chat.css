@@ -859,3 +859,12 @@ html[data-theme="dark"] .plugin-skills-empty{border-color:#383938}html[data-them
   .chat-sidebar-panel{left:auto;width:auto}
   .chat-icon-rail{padding-inline:6px}.chat-icon-rail .chat-rail-button{width:40px!important;height:40px!important;min-height:40px!important}.chat-icon-rail .chat-rail-button svg{width:19px!important;height:19px!important}
 }
+
+/* Empty chat content stays in the workspace grid instead of overlapping. */
+.chat-workspace-empty{grid-template-rows:60px minmax(0,1fr) auto!important}
+.chat-workspace-empty .chat-empty{box-sizing:border-box;width:min(760px,calc(100% - 48px));min-height:0;flex:0 0 auto;justify-content:center;padding:32px 0;text-align:center;transform:none}
+.chat-workspace-empty .chat-empty h1{margin:0;font:600 clamp(34px,4vw,52px)/1.12 "Studio Feixen Sans",Arial,sans-serif;letter-spacing:-.045em}
+.chat-workspace-empty .chat-empty-description{margin:16px 0 0;color:#858580;font:16px/1.5 "Studio Feixen Sans",Arial,sans-serif}
+.chat-workspace-empty .chat-composer-wrap{position:relative!important;top:auto!important;right:auto!important;bottom:auto!important;left:auto!important;z-index:2;width:100%;box-sizing:border-box;padding:0 24px 24px;background:transparent}
+.chat-workspace-empty .chat-composer{width:min(760px,100%);margin:0 auto;box-sizing:border-box}
+@media(max-width:900px){.chat-workspace-empty .chat-composer-wrap{padding:0 14px 14px}.chat-workspace-empty .chat-empty{width:calc(100% - 28px);padding:28px 0}.chat-workspace-empty .chat-empty h1{font-size:clamp(31px,7vw,44px)}}
