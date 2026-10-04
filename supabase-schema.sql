@@ -151,10 +151,11 @@ with check (bucket_id = 'project-files' and (storage.foldername(name))[1] = auth
 -- Account settings and durable daily free-plan usage
 create table if not exists user_settings (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  appearance text not null default 'system' check (appearance in ('system', 'light')),
+  appearance text not null default 'system' check (appearance in ('system', 'light', 'dark')),
   language text not null default 'auto',
   response_streaming boolean not null default true,
   custom_instructions text not null default '',
+  response_style text not null default 'balanced' check (response_style in ('concise', 'balanced', 'detailed')),
   updated_at timestamptz default now()
 );
 
@@ -174,6 +175,17 @@ create table if not exists user_memories (
   created_at timestamptz default now()
 );
 
+create table if not exists user_promos (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  code text not null check (code = 'FREE'),
+  created_at timestamptz not null default now()
+);
+alter table user_promos enable row level security;
+drop policy if exists "Users read own promo" on user_promos;
+create policy "Users read own promo" on user_promos for select using (auth.uid() = user_id);
+revoke insert, update, delete on user_promos from anon, authenticated;
+grant select on user_promos to authenticated;
+
 alter table user_settings add column if not exists developer_mode boolean not null default false;
 -- Remove retired prototype-only settings when upgrading an existing project.
 alter table user_settings drop column if exists accent_color;
@@ -185,9 +197,12 @@ alter table daily_usage enable row level security;
 alter table user_memories enable row level security;
 drop policy if exists "Users manage own settings" on user_settings;
 drop policy if exists "Users manage own daily usage" on daily_usage;
+drop policy if exists "Users read own daily usage" on daily_usage;
 drop policy if exists "Users manage own memories" on user_memories;
 create policy "Users manage own settings" on user_settings for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy "Users manage own daily usage" on daily_usage for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "Users read own daily usage" on daily_usage for select using (auth.uid() = user_id);
+revoke insert, update, delete on daily_usage from anon, authenticated;
+grant select on daily_usage to authenticated;
 create policy "Users manage own memories" on user_memories for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- Enable email sign-up (check Supabase Dashboard → Authentication → Providers → Email is enabled)
@@ -207,10 +222,12 @@ returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   result public.daily_usage;
   utc_day date := (clock_timestamp() at time zone 'UTC')::date;
+  has_unlimited boolean;
 begin
   if p_user_id is null or p_kind not in ('messages', 'uploads') or p_amount < 1 then
     raise exception 'INVALID_USAGE_REQUEST';
   end if;
+  select exists(select 1 from public.user_promos where user_id = p_user_id and code = 'FREE') into has_unlimited;
   insert into public.daily_usage(user_id, usage_date) values(p_user_id, utc_day)
     on conflict(user_id, usage_date) do nothing;
   -- UPDATE locks the account/day row and evaluates the bound against the latest value.
@@ -219,8 +236,8 @@ begin
       uploads = uploads + case when p_kind = 'uploads' then p_amount else 0 end,
       updated_at = now()
   where user_id = p_user_id and usage_date = utc_day
-    and messages + case when p_kind = 'messages' then p_amount else 0 end <= 100
-    and uploads + case when p_kind = 'uploads' then p_amount else 0 end <= 3
+    and (has_unlimited or messages + case when p_kind = 'messages' then p_amount else 0 end <= 100)
+    and (has_unlimited or uploads + case when p_kind = 'uploads' then p_amount else 0 end <= 3)
   returning * into result;
   if not found then
     if p_kind = 'messages' then raise exception 'DAILY_MESSAGE_LIMIT';

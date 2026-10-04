@@ -4,7 +4,7 @@ export const DEMO_CONVERSATIONS_KEY = "jan-demo-conversations";
 export const PROJECTS_STORAGE_KEY = "jan-projects";
 export const FREE_DAILY_MESSAGE_LIMIT = 100;
 export const FREE_DAILY_UPLOAD_LIMIT = 3;
-export const DEFAULT_SETTINGS = { appearance: "system", language: "auto", response_streaming: true, developer_mode: false, custom_instructions: "" };
+export const DEFAULT_SETTINGS = { appearance: "system", language: "auto", response_streaming: true, developer_mode: false, custom_instructions: "", response_style: "balanced" };
 
 export function readDemoUser() {
   try { return JSON.parse(window.localStorage.getItem(DEMO_USER_KEY) || "null"); } catch { return null; }

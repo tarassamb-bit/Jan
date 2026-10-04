@@ -42,21 +42,44 @@ export function clampAttachmentText(value) {
   return text.length > MAX_ATTACHMENT_CHARS ? `${text.slice(0, MAX_ATTACHMENT_CHARS)}\n\n[File excerpt truncated]` : text;
 }
 
+async function compressImageAttachment(file) {
+  const image = await createImageBitmap(file);
+  const attempts = [
+    { edge: 1920, quality: 0.76 },
+    { edge: 1440, quality: 0.66 },
+    { edge: 1080, quality: 0.58 },
+  ];
+  let blob = file;
+  for (const attempt of attempts) {
+    const scale = Math.min(1, attempt.edge / Math.max(image.width, image.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+    blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", attempt.quality));
+    if (blob?.size <= 600_000) break;
+  }
+  image.close?.();
+  if (!blob) throw new Error(`Couldn’t prepare ${file.name}.`);
+  return new File([blob], `${file.name.replace(/\.[^.]+$/, "") || "image"}.webp`, { type: "image/webp" });
+}
+
 export async function extractAttachment(file, maxBytes = MAX_ATTACHMENT_BYTES) {
-  if (file.size > maxBytes) throw new Error(`${file.name} exceeds the file size limit.`);
   const lowerName = file.name.toLowerCase();
   const isPdf = file.type === "application/pdf" || lowerName.endsWith(".pdf");
+  const isImage = file.type.startsWith("image/") || /\.(avif|gif|heic|heif|jpe?g|png|svg|webp)$/i.test(lowerName);
   const base = { name: file.name, type: file.type || (isPdf ? "application/pdf" : "text/plain"), size: file.size };
 
-  if (file.type.startsWith("image/")) {
-    const compressed = file.type === "image/webp" ? file : (await compressProjectFile(file)).file;
-    if (compressed.size > 600_000) throw new Error(`${file.name} is too large after compression. Please use a smaller image.`);
+  if (isImage) {
+    const compressed = await compressImageAttachment(file);
     const bytes = new Uint8Array(await compressed.arrayBuffer());
     let binary = "";
     for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
     const dataUrl = `data:${compressed.type};base64,${btoa(binary)}`;
     return { ...base, type: compressed.type, size: compressed.size, preview: dataUrl, dataUrl, content: `[Image attached: ${file.name}]`, vision: true };
   }
+
+  if (file.size > maxBytes) throw new Error(`${file.name} exceeds the file size limit.`);
 
   if (isPdf) {
     const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
@@ -86,7 +109,7 @@ export function serializeAttachments(attachments = []) {
 }
 
 export function restoreAttachments(attachments = []) {
-  return attachments.map((file) => ({ ...file, preview: file.dataUrl }));
+  return attachments.map((file) => ({ ...file, preview: file.dataUrl || file.preview }));
 }
 
 export async function loadProjectSources(project, client, isDemo) {

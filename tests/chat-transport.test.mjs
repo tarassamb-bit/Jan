@@ -14,7 +14,6 @@ test('restored text attachments contribute their contents on later turns', () =>
   assert.match(transcript[0].content, /launch is Tuesday/);
   assert.equal(transcript[2].content, 'When is the launch?');
 });
-
 test('loads a compressed project source and includes its text', async () => {
   const file = new File(['The answer is 42.'], 'answer.txt', { type: 'text/plain' });
   const compressed = await new Response(file.stream().pipeThrough(new CompressionStream('gzip'))).blob();
@@ -45,6 +44,20 @@ test('sends bearer token and follows the streaming preference', async () => {
   }
 });
 
+test('delivers validated web-source metadata to the message UI', async () => {
+  const sources = [{ title: 'Reuters report', url: 'https://reuters.com/example', excerpt: 'A concise supporting excerpt.' }];
+  let received;
+  await requestChat({
+    client, user, messages: input, preferences: { response_streaming: false },
+    onSources: (value) => { received = value; },
+    fetchImpl: async () => new Response(JSON.stringify({ content: 'Current answer ¹.' }), { headers: {
+      'content-type': 'application/json',
+      'X-Jan-Web-Sources': encodeURIComponent(JSON.stringify(sources)),
+    } }),
+  });
+  assert.deepEqual(received, sources);
+});
+
 test('denies demo and unsigned sessions before network requests', async () => {
   await assert.rejects(requestChat({ client, user: { is_demo: true }, messages: input, fetchImpl: () => { throw Error('network'); } }), /Sign in/);
   await assert.rejects(requestChat({ client: { auth: { getSession: async () => ({ data: {} }) } }, user, messages: input, fetchImpl: () => { throw Error('network'); } }), /sign in/i);
@@ -54,23 +67,4 @@ test('reports an interrupted stream while keeping the partial text for the calle
   let partial = '';
   await assert.rejects(requestChat({ client, user, messages: input, preferences: { response_streaming: true }, onDelta: (text) => { partial = text; }, fetchImpl: async () => new Response('data: {"choices":[{"delta":{"content":"Partial"}}]}\n\n', { headers: { 'content-type': 'text/event-stream' } }) }), /interrupted/);
   assert.equal(partial, 'Partial');
-});
-
-test('passes the web-search choice and keeps live source links in the saved response', async () => {
-  let request;
-  const sources = encodeURIComponent(JSON.stringify([{ title: 'Example News', url: 'https://example.com/news' }]));
-  const response = new Response(JSON.stringify({ content: 'The announcement was today.' }), { headers: { 'content-type': 'application/json', 'X-Jan-Web-Sources': sources } });
-  const content = await requestChat({ client, user, messages: input, webSearch: true, preferences: { response_streaming: false }, fetchImpl: async (_, options) => { request = options; return response; } });
-  assert.equal(JSON.parse(request.body).webSearch, true);
-  assert.match(content, /Links found by search/);
-  assert.match(content, /https:\/\/example.com\/news/);
-});
-
-test('adds source links after a streamed response completes', async () => {
-  const sources = encodeURIComponent(JSON.stringify([{ title: 'Live report', url: 'https://example.com/live' }]));
-  const response = new Response('data: {"choices":[{"delta":{"content":"Current answer"}}]}\n\ndata: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream', 'X-Jan-Web-Sources': sources } });
-  let latest = '';
-  const content = await requestChat({ client, user, messages: input, onDelta: (value) => { latest = value; }, fetchImpl: async () => response });
-  assert.equal(content, latest);
-  assert.match(content, /Current answer[\s\S]*Links found by search[\s\S]*https:\/\/example.com\/live/);
 });

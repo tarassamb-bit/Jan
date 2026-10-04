@@ -2,7 +2,7 @@ export function chatRequestError(payload, fallback = 'Jan could not respond. Ple
   return Object.assign(new Error(payload?.error || fallback), { code: payload?.code });
 }
 
-export async function requestChat({ client, user, messages, model, preferences, memories, webSearch = false, signal, onDelta = () => {}, onUsage = () => {}, fetchImpl = fetch }) {
+export async function requestChat({ client, user, messages, model, preferences, memories, locale = globalThis.navigator?.language || '', signal, onDelta = () => {}, onUsage = () => {}, onSources = () => {}, fetchImpl = fetch }) {
   if (user?.is_demo) throw chatRequestError({ code: 'AUTH_REQUIRED', error: 'Sign in to send messages. Live AI is unavailable in the local demo.' });
   const { data, error } = await client.auth.getSession();
   const token = data?.session?.access_token;
@@ -10,27 +10,18 @@ export async function requestChat({ client, user, messages, model, preferences, 
   const response = await fetchImpl('/api/chat', {
     method: 'POST', signal,
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ messages, model, stream: preferences?.response_streaming !== false, preferences, memories, webSearch }),
+    body: JSON.stringify({ messages, model, stream: preferences?.response_streaming !== false, preferences, memories, locale }),
   });
   const usage = response.headers.get('X-Jan-Usage');
   if (usage) { try { onUsage(JSON.parse(usage)); } catch { /* A malformed optional header must not discard the response. */ } }
+  const webSources = response.headers.get('X-Jan-Web-Sources');
+  if (webSources) { try { onSources(JSON.parse(decodeURIComponent(webSources))); } catch { /* Source previews are optional. */ } }
   if (!response.ok) throw chatRequestError(await response.json().catch(() => ({})));
-  let sourceSuffix = '';
-  const sourceHeader = response.headers.get('X-Jan-Web-Sources');
-  if (sourceHeader) {
-    try {
-      const sources = JSON.parse(decodeURIComponent(sourceHeader));
-      const links = Array.isArray(sources) ? sources.filter((source) => /^https:\/\//.test(source?.url)).slice(0, 5) : [];
-      sourceSuffix = links.length
-        ? `\n\nLinks found by search\n${links.map((source) => `- [${String(source.title || source.url).replace(/[\\[\]()]/g, '\\$&')}](<${String(source.url).replace(/[<>]/g, (character) => character === '<' ? '%3C' : '%3E')}>)${/^\d{4}-\d{2}-\d{2}$/.test(source.publishedDate || '') ? ` · published ${source.publishedDate}` : ''}`).join('\n')}`
-        : '';
-    } catch { /* Ignore malformed optional source metadata. */ }
-  }
   if (!response.headers.get('content-type')?.includes('text/event-stream')) {
     const payload = await response.json();
     if (!payload.content?.trim()) throw new Error('Jan returned an empty response. Please try again.');
-    onDelta(payload.content + sourceSuffix);
-    return payload.content + sourceSuffix;
+    onDelta(payload.content);
+    return payload.content;
   }
   if (!response.body) throw new Error('Jan could not start a response stream.');
   const reader = response.body.getReader();
@@ -57,8 +48,6 @@ export async function requestChat({ client, user, messages, model, preferences, 
     if (buffer.trim()) event(buffer);
     if (!finished) throw new Error('The response was interrupted. Your partial answer has been kept.');
     if (!content.trim()) throw new Error('Jan returned an empty response. Please try again.');
-    content += sourceSuffix;
-    if (sourceSuffix) onDelta(content);
     return content;
   } finally { reader.releaseLock(); }
 }

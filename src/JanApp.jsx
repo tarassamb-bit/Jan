@@ -151,7 +151,7 @@ const PAGE_DATA = {
   "/changelog": {
     eyebrow: "Changelog", title: "What’s new in the prototype", accent: "blue",
     intro: "A fictional release log demonstrating how this self-contained site could publish product updates.",
-    cards: [["v0.8.4 · Search & templates", "Added native web search, per-model templates, and a cleaner settings store."], ["v0.8.3 · Branching", "Added message branches, artifact previews, and more consistent desktop controls."], ["v0.8.2 · Faster startup", "Improved launch time, resumable model downloads, and hardware detection."]],
+    cards: [["v0.8.4 · Templates", "Added per-model templates and a cleaner settings store."], ["v0.8.3 · Branching", "Added message branches, artifact previews, and more consistent desktop controls."], ["v0.8.2 · Faster startup", "Improved launch time, resumable model downloads, and hardware detection."]],
   },
   "/api": {
     eyebrow: "API Reference", title: "A familiar local endpoint", accent: "lilac",
@@ -450,7 +450,7 @@ export function App() {
   }, [path]);
   const page = useMemo(() => PAGE_DATA[path], [path]);
   if (path === "/") return <Home />;
-  if (path === "/chat" || /^\/chat\/\d{14}-[a-z0-9]{8}$/i.test(path)) return <Suspense fallback={<main className="chat-gate" role="status">Opening Jan…</main>}><ChatPage useUser={useUser} navigate={navigate} requestAuth={requestAuth} Header={Header} Brand={Brand} Link={Link} /></Suspense>;
+  if (path === "/chat" || /^\/chat\/\d{14}-[a-z0-9]{8}$/i.test(path) || /^\/(?:assistant|plugins)_[^/]+$/i.test(path) || /^\/plugin\/[^/]+\/[^/]+$/i.test(path) || /^\/library_[^/]+(?:\/file\/[^/]+)?$/i.test(path) || /^\/settings\/(general|usage|personalization|developer|data-controls|storage|security)$/i.test(path)) return <Suspense fallback={<main className="chat-gate" role="status">Opening Jan…</main>}><ChatPage path={path} useUser={useUser} navigate={navigate} requestAuth={requestAuth} Header={Header} Brand={Brand} Link={Link} /></Suspense>;
   if (path === "/docs") return <DocsPage />;
   if (path === "/research") return <ResearchPage />;
   if (DOC_ARTICLES[path]) return <DocArticlePage article={DOC_ARTICLES[path]} />;
