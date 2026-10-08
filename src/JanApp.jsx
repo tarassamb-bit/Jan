@@ -59,27 +59,6 @@ const DOWNLOADS = [
   ["Linux (Deb)", "82.9 MB", FaLinux],
 ];
 
-const TESTIMONIALS = [
-  { name: "Ivan Fioravanti", handle: "@ivanfioravanti", avatar: "/assets/profile-ivan.jpg", text: "Local AI in action: conducting private research at home. Local models are taking the lead." },
-  { name: "Mariusz Kurman", handle: "@mkurman88", avatar: "/assets/profile-mariusz.jpg", text: "Jan makes open models feel approachable. A clean app, a local-first mindset, and no complicated setup." },
-  { name: "The Mandorlarian", handle: "@mandorlarian", avatar: "/assets/profile-mandor.jpg", text: "Jan-V1 is seriously good. You don't need expensive closed models anymore for many tasks—open models have come a long way." },
-  { name: "Anes Valentic", handle: "@Matrix_Memories", avatar: "/assets/profile-anes.jpg", text: "Jan is an amazing tool that is open source and you can deploy locally. If you haven't tried it already, do so." },
-  { name: "Aster", handle: "@asterdotai", avatar: "/assets/profile-aster.jpg", text: "Open source, private, and running fully on your machine. No API bills, real-time answers, and your data stays with you." },
-  { name: "levelsio", handle: "@levelsio", avatar: "/assets/profile-levels.jpg", text: "Local models are getting incredibly useful. Jan packages the whole experience in a way that feels familiar and fast." },
-];
-
-const MODELS = [
-  ["ChatGPT", "OpenAI", "/assets/chatgpt.svg"],
-  ["Claude", "Anthropic", "/assets/claude.svg"],
-  ["Gemini", "Google", "/assets/gemini.svg"],
-  ["Llama", "Meta", "/assets/meta.svg"],
-  ["Mistral", "Mistral AI", "/assets/mistral.svg"],
-  ["Qwen", "Alibaba", "/assets/qwen.svg"],
-  ["DeepSeek", "DeepSeek", "/assets/deepseek.svg"],
-  ["Gemma", "Google", "/assets/gemma.svg"],
-  ["Kimi", "Moonshot AI", "/assets/kimi.svg"],
-];
-
 const RESEARCH_CATEGORIES = ["ALL", "REASONING", "INSTRUCT", "CODE", "VISION", "DEEP RESEARCH", "PERSONALITY", "EDGE"];
 const RESEARCH_ITEMS = [
   { title: "Jan-v3.5-4B", description: "The first Jan personality — a 4B model fine-tuned for math reasoning with a distinct conversational identity.", date: "MARCH 20, 2026", tags: ["PERSONALITY", "REASONING", "VISION"], image: "/assets/jan-v3-5-4b-banner.png", href: "/research/jan-v3-5-4b", featured: true },
@@ -263,7 +242,7 @@ function AuthModal({ initialMode, onClose }) {
   };
 
   const useDemo = () => { window.localStorage.setItem(DEMO_USER_KEY, JSON.stringify({ id: "jan-demo", email: DEMO_ACCOUNT.email, user_metadata: { display_name: DEMO_ACCOUNT.name }, is_demo: true })); window.dispatchEvent(new CustomEvent("jan:demo-auth")); onClose(); navigate("/chat"); };
-  return <div className="auth-overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section ref={modalRef} className="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title" aria-describedby="auth-description"><button className="auth-close" type="button" onClick={onClose} aria-label="Close account dialog"><FiX /></button><div className="auth-mark"><img src="/assets/logo-jan.svg" alt="" /></div><span className="auth-eyebrow">PERSONAL INTELLIGENCE</span><h2 id="auth-title">{mode === "signup" ? "Create your Jan account" : "Welcome back"}</h2><p id="auth-description">{mode === "signup" ? "One private workspace for your conversations." : "Continue to your personal workspace."}</p>{mode === "login" && <button className="demo-account" type="button" onClick={useDemo}><span><b>LOCAL DEMO</b><small>{DEMO_ACCOUNT.name} · no sign-up needed</small></span><strong>Try demo</strong></button>}<form onSubmit={submit}>{mode === "signup" && <label><span>Name</span><input autoFocus required value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" autoComplete="name" /></label>}<label><span>Email</span><input autoFocus={mode === "login"} required type="email" value={email} onChange={(event) => { setEmail(event.target.value); setError(""); }} placeholder="you@example.com" autoComplete="email" /></label><label><span>Password</span><input required minLength="6" type="password" value={password} onChange={(event) => { setPassword(event.target.value); setError(""); }} placeholder="At least 6 characters" autoComplete={mode === "signup" ? "new-password" : "current-password"} /></label>{error && <p className="auth-error" role="alert">{error}</p>}<button className="auth-submit" type="submit" disabled={submitting}>{submitting ? "Please wait…" : mode === "signup" ? "Create account" : "Log in"}<FiArrowRight /></button></form><small>Your password is securely stored with Supabase. We never see it.</small><button className="auth-switch" type="button" onClick={() => { setMode((value) => value === "signup" ? "login" : "signup"); setError(""); }}>{mode === "signup" ? "Already have an account? Log in" : "New to Jan? Create an account"}</button></section></div>;
+  return <div className="auth-overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section ref={modalRef} className="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title" aria-describedby="auth-description"><button className="auth-close" type="button" onClick={onClose} aria-label="Close account dialog"><FiX /></button><div className="auth-mark"><img src="/assets/logo-jan.svg" alt="" /></div><span className="auth-eyebrow">PERSONAL AI WORKSPACE</span><h2 id="auth-title">{mode === "signup" ? "Create your Jan account" : "Welcome back"}</h2><p id="auth-description">{mode === "signup" ? "One account for your conversations and projects." : "Continue to your personal workspace."}</p>{mode === "login" && <button className="demo-account" type="button" onClick={useDemo}><span><b>LOCAL DEMO</b><small>{DEMO_ACCOUNT.name} · no sign-up needed</small></span><strong>Try demo</strong></button>}<form onSubmit={submit}>{mode === "signup" && <label><span>Name</span><input autoFocus required value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" autoComplete="name" /></label>}<label><span>Email</span><input autoFocus={mode === "login"} required type="email" value={email} onChange={(event) => { setEmail(event.target.value); setError(""); }} placeholder="you@example.com" autoComplete="email" /></label><label><span>Password</span><input required minLength="6" type="password" value={password} onChange={(event) => { setPassword(event.target.value); setError(""); }} placeholder="At least 6 characters" autoComplete={mode === "signup" ? "new-password" : "current-password"} /></label>{error && <p className="auth-error" role="alert">{error}</p>}<button className="auth-submit" type="submit" disabled={submitting}>{submitting ? "Please wait…" : mode === "signup" ? "Create account" : "Log in"}<FiArrowRight /></button></form><small>Sign-in and password management are handled by Supabase Auth.</small><button className="auth-switch" type="button" onClick={() => { setMode((value) => value === "signup" ? "login" : "signup"); setError(""); }}>{mode === "signup" ? "Already have an account? Log in" : "New to Jan? Create an account"}</button></section></div>;
 }
 
 function Brand({ light = false }) {
@@ -272,7 +251,6 @@ function Brand({ light = false }) {
 
 function Header({ home = false, showSearch = false }) {
   const [scrolled, setScrolled] = useState(false);
-  const [companyOpen, setCompanyOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [authMode, setAuthMode] = useState(null);
@@ -287,25 +265,21 @@ function Header({ home = false, showSearch = false }) {
   const matches = (label) => !search || label.toLowerCase().includes(search.toLowerCase());
   const close = () => setMobileOpen(false);
   const light = home && !scrolled;
-  const companyItems = [["Changelog", "/changelog"], ["Blog", "/blog"], ["About Us", "/about"], ["Careers", "/careers"], ["Handbook", "/handbook"]];
   return <>
     <header className={`site-header ${light ? "header-light" : "header-solid"} ${showSearch ? "with-search" : ""}`}>
       <Brand light={light} />
       <nav className="desktop-nav" aria-label="Primary navigation">
-        <Link href="/jan">Jan <FiChevronDown /></Link><Link href="/tokamak">Tokamak</Link><Link href="/research">Research</Link><Link href="/docs">Docs</Link>
-        <span className="company-wrap"><button type="button" onClick={() => setCompanyOpen((open) => !open)} aria-expanded={companyOpen}>Company <FiChevronDown /></button>{companyOpen && <span className="company-menu"><Link href="/about">About Us</Link><Link href="/careers">Careers</Link><Link href="/handbook">Handbook</Link><Link href="/changelog">Changelog</Link></span>}</span>
+        <Link href="/chat">Chat</Link><Link href="/docs">Docs</Link>
       </nav>
-      <div className="header-actions">{showSearch && <Link className="header-search" href="/docs"><FiSearch /><span>Search docs...</span><kbd>⌘K</kbd></Link>}{user ? <Link className="header-account" href="/chat"><span className="account-avatar">{user.name?.charAt(0).toUpperCase()}</span><span className="account-label">Open Jan</span></Link> : <div className="header-auth"><button type="button" onClick={() => setAuthMode("login")}>Log in</button><button type="button" onClick={() => setAuthMode("signup")}>Sign up</button></div>}<div className="header-socials"><Link href="/community" aria-label="Discord"><FaDiscord /></Link><Link href="/community" aria-label="X"><FaXTwitter /></Link><Link href="/company" aria-label="LinkedIn"><FaLinkedinIn /></Link><Link href="/community" aria-label="GitHub"><FaGithub /></Link></div><button className="mobile-menu-button" type="button" onClick={() => setMobileOpen(true)} aria-label="Toggle mobile menu">{mobileOpen ? <FiX /> : <FiMenu />}</button></div>
+      <div className="header-actions">{showSearch && <Link className="header-search" href="/docs"><FiSearch /><span>Search docs...</span><kbd>⌘K</kbd></Link>}{user ? <Link className="header-account" href="/chat"><span className="account-avatar">{user.name?.charAt(0).toUpperCase()}</span><span className="account-label">Open workspace</span></Link> : <div className="header-auth"><button type="button" onClick={() => setAuthMode("login")}>Log in</button><button type="button" onClick={() => setAuthMode("signup")}>Sign up</button></div>}<button className="mobile-menu-button" type="button" onClick={() => setMobileOpen(true)} aria-label="Toggle mobile menu">{mobileOpen ? <FiX /> : <FiMenu />}</button></div>
     </header>
     {mobileOpen && <div className="mobile-overlay" onMouseDown={(event) => event.target === event.currentTarget && close()}><aside className="mobile-drawer" aria-label="Mobile navigation">
       <div className="drawer-head"><h2>Jan</h2><button type="button" onClick={close} aria-label="Close menu"><FiX /></button></div>
       <label className="drawer-search"><FiSearch /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search docs..." aria-label="Search documentation" /></label>
       <nav>
-        {matches("Jan") && <div className="drawer-group"><Link href="/jan" onClick={close}>Jan</Link>{matches("Jan Desktop") && <Link className="drawer-child" href="/jan" onClick={close}>Jan Desktop</Link>}{matches("Jan Agent") && <Link className="drawer-child" href="/agent" onClick={close}>Jan Agent</Link>}</div>}
-        {[["Tokamak", "/tokamak"], ["Research", "/research"], ["Docs", "/docs"]].filter(([label]) => matches(label)).map(([label, href]) => <Link href={href} onClick={close} key={label}>{label}</Link>)}
-        {matches("Company") && <div className="drawer-group"><Link href="/company" onClick={close}>Company</Link>{companyItems.filter(([label]) => matches(label)).map(([label, href]) => <Link className="drawer-child" href={href} onClick={close} key={label}>{label}</Link>)}</div>}
+        {matches("Chat") && <Link href="/chat" onClick={close}>Chat</Link>}
+        {matches("Docs") && <Link href="/docs" onClick={close}>Docs</Link>}
       </nav>
-      <div className="drawer-socials"><Link href="/community" aria-label="Discord"><FaDiscord /></Link><Link href="/community" aria-label="X"><FaXTwitter /></Link><Link href="/company" aria-label="LinkedIn"><FaLinkedinIn /></Link><Link href="/community" aria-label="GitHub"><FaGithub /></Link></div>
       {user ? <Link className="drawer-account" href="/chat" onClick={close}><FiMessageCircle /> Open Jan</Link> : <div className="drawer-auth"><button type="button" onClick={() => { close(); setAuthMode("login"); }}>Log in</button><button type="button" onClick={() => { close(); setAuthMode("signup"); }}>Sign up</button></div>}
     </aside></div>}
     {authMode && <AuthModal initialMode={authMode} onClose={() => setAuthMode(null)} />}
@@ -326,39 +300,31 @@ function AccountCtas({ compact = false }) {
 }
 
 function Hero() {
-  return <><section className="hero"><div className="hero-copy"><Link className="release-pill" href="/changelog"><span>NEW</span><b>✨ Your private AI workspace is ready.</b></Link><div className="hero-title"><img className="hero-wave" src="/assets/logo-jan.svg" alt="Logo Jan" /><h1>Meet Jan</h1></div><p>Personal Intelligence that answers only to you</p><div className="hero-actions"><AccountCtas /><Link className="community-button pressed" href="/community"><FaDiscord className="discord-color" /><span>Join community</span><small><FaUsers />15k+</small></Link></div></div><img className="flying-robot" src="/assets/cute-robot-flying.png" alt="A cheerful flying robot" /></section><img className="app-preview" src="/assets/app-jan.png" alt="Jan App Interface" /></>;
+  return <><section className="hero"><div className="hero-copy"><div className="release-pill"><b>Your personal AI workspace</b></div><div className="hero-title"><img className="hero-wave" src="/assets/logo-jan.svg" alt="" /><h1>Meet Jan</h1></div><p>Chat with AI, organize projects and files, and connect the tools you use.</p><div className="hero-actions"><AccountCtas /><Link className="community-button pressed" href="/docs"><FiBookOpen /><span>How it works</span></Link></div></div><img className="flying-robot" src="/assets/cute-robot-flying.png" alt="A cheerful flying robot" /></section><img className="app-preview" src="/assets/app-jan.png" alt="Preview of the Jan chat workspace" /></>;
 }
 
 function Ecosystem() {
-  return <section className="ecosystem"><h2>An open model ecosystem</h2><div className="ecosystem-grid"><article className="outline-card"><h3>Jan Agent</h3><p>The core agent, distributed separately — run it on your own VM or container.</p><Link className="outline-button pressed" href="/agent">Install Jan Agent</Link></article><article className="outline-card"><h3>Tokamak</h3><p>Router, fusion model, and governance/audit — the self-hosted backend Jan agents connect to.</p><Link className="outline-button pressed" href="/tokamak">Explore Tokamak</Link></article></div></section>;
-}
-
-function Testimonials() {
-  const [slide, setSlide] = useState(0);
-  return <section className="testimonials"><h2>Over 4 million downloads</h2><div className="carousel-window"><div className="testimonial-track" style={{ "--slide": slide }}>{[...TESTIMONIALS, ...TESTIMONIALS].map((item, index) => <article className="testimonial" key={`${item.name}-${index}`}><div className="testimonial-head"><img src={item.avatar} alt="" /><span><strong>{item.name}</strong><small>{item.handle}</small></span><FaXTwitter /></div><p>{item.text}</p></article>)}</div></div><div className="carousel-controls"><button type="button" aria-label="Previous testimonials" onClick={() => setSlide((value) => Math.max(0, value - 1))}><FiArrowLeft /></button><button type="button" aria-label="Next testimonials" onClick={() => setSlide((value) => (value + 1) % 6)}><FiArrowRight /></button></div></section>;
+  return <section className="ecosystem"><h2>Everything you need for a focused chat workspace</h2><div className="ecosystem-grid"><article className="outline-card"><h3>Chat with AI</h3><p>Start a conversation, choose from the models available to your account, and continue from your chat history.</p><Link className="outline-button pressed" href="/chat">Open chat</Link></article><article className="outline-card"><h3>Keep work organized</h3><p>Group related conversations into projects and add files for context.</p><Link className="outline-button pressed" href="/chat">Explore workspace</Link></article></div></section>;
 }
 
 function CommunityPanel() {
-  return <section className="community-panel"><div className="community-copy"><h2>Jan is built in public</h2><p>We believe AI should be open, and grow<br /> through the people who build and use it</p><div className="community-stats"><Link className="stat-card stat-github pressed" href="/community"><span className="stat-icon"><FaGithub /></span><span><b>GitHub</b><small>44.5K stars</small></span></Link><Link className="stat-card stat-discord pressed" href="/community"><span className="stat-icon"><FaDiscord /></span><span><b>Discord</b><small>1.5K Online</small></span></Link><Link className="stat-card stat-hugging pressed" href="/research"><span className="stat-icon"><img src="/assets/huggingface.svg" alt="" /></span><span><b>HuggingFace</b><small>123 models</small></span></Link></div></div><img className="mountain-robot" src="/assets/cute-robot-bg-mountain.png" alt="A person assembling a friendly robot" /></section>;
+  return <section className="community-panel"><div className="community-copy"><h2>Built around your work</h2><p>Keep conversations, project files, and connected services together in one workspace.</p><div className="community-stats"><Link className="stat-card stat-github pressed" href="/chat"><span className="stat-icon"><FiMessageCircle /></span><span><b>Conversations</b><small>Start or revisit a chat</small></span></Link><Link className="stat-card stat-discord pressed" href="/chat"><span className="stat-icon"><FiFolder /></span><span><b>Projects</b><small>Group chats and files</small></span></Link><Link className="stat-card stat-hugging pressed" href="/chat"><span className="stat-icon"><FiGrid /></span><span><b>Connected apps</b><small>When integrations are configured</small></span></Link></div></div><img className="mountain-robot" src="/assets/cute-robot-bg-mountain.png" alt="A person assembling a friendly robot" /></section>;
 }
 
-function ModelGrid() { return <div className="model-grid">{MODELS.map(([name, maker, image]) => <div className="model" key={name}><img src={image} alt={name} /><strong>{name}</strong><span>{maker}</span></div>)}</div>; }
 function NumberBadge({ children }) { return <span className="number-badge">{children}</span>; }
 
 function Tools() {
-  const memory = ["Minimalist UI tasted", "Currently on a portfolio refresh", "Wants brief, to-the-point answers", "Frequent Figma/prototyping questions", "Dark-mode sharer", "Curious about type trends (Mostly harmless)"];
-  return <section className="tools"><div className="tools-inner"><h2>All the tools you need<br className="desktop-only" /> to make Jan yours</h2><div className="tool-row models-row"><div className="tool-copy"><NumberBadge>1</NumberBadge><h3>Models</h3><p>Choose from open models or plug in your favorite online models.</p></div><ModelGrid /></div><div className="tool-row memory-row"><div className="tool-copy"><NumberBadge>2</NumberBadge><h3>Memory <span>Private & editable</span></h3><p>Your context carries over, so you don’t repeat yourself. Review and delete every memory in settings.</p></div><div className="memory-cards" aria-label="Example memory card"><div className="memory-card-stack"><div className="memory-card-shadow memory-lilac" /><div className="memory-card-shadow memory-mint" /><article className="memory-card"><div className="memory-person"><img src="/assets/avatar.png" alt="Joe's avatar" /><div><h4>Joe</h4><p>Designer, Singapore</p></div></div><h5>Things Jan keeps in mind</h5><ul>{memory.map((item) => <li key={item}><b>•</b><span>{item}</span></li>)}</ul></article></div></div></div></div></section>;
+  const memory = ["Preferred answer length", "Writing and formatting preferences", "Topics you ask Jan to remember"];
+  return <section className="tools"><div className="tools-inner"><h2>Make the workspace work for you</h2><div className="tool-row models-row"><div className="tool-copy"><NumberBadge>1</NumberBadge><h3>Choose a model</h3><p>The model picker shows the options currently available to your account. Chat responses are generated by a hosted provider.</p></div><div className="model-grid"><div className="model"><FiCpu /><strong>Model picker</strong><span>Availability can vary</span></div></div></div><div className="tool-row memory-row"><div className="tool-copy"><NumberBadge>2</NumberBadge><h3>Memory <span>Manage in settings</span></h3><p>Save useful preferences, review saved memories, and edit or delete them in Personalization settings.</p></div><div className="memory-cards" aria-label="Illustrative examples of memory types"><div className="memory-card-stack"><div className="memory-card-shadow memory-lilac" /><div className="memory-card-shadow memory-mint" /><article className="memory-card"><div className="memory-person"><img src="/assets/logo-jan.svg" alt="" /><div><h4>Example only</h4><p>Possible saved preferences</p></div></div><h5>Things you can ask Jan to remember</h5><ul>{memory.map((item) => <li key={item}><b>•</b><span>{item}</span></li>)}</ul></article></div></div></div></div></section>;
 }
 
-function FinalCta() { return <section className="final-cta"><div className="final-cta-top"><h2>Ask Jan anything</h2><div><AccountCtas compact /><p>Your private workspace, ready in the browser.</p></div></div><img src="/assets/cute-robot-flying.png" alt="Jan flying through the clouds" /></section>; }
+function FinalCta() { return <section className="final-cta"><div className="final-cta-top"><h2>Open your workspace</h2><div><AccountCtas compact /><p>Live AI chat requires an account and server configuration.</p></div></div><img src="/assets/cute-robot-flying.png" alt="Jan flying through the clouds" /></section>; }
 
 function Footer() {
-  const [email, setEmail] = useState(""); const [sent, setSent] = useState(false);
-  const submit = (event) => { event.preventDefault(); if (email.trim()) setSent(true); };
-  return <footer><div className="footer-main"><div className="footer-brand"><Brand /><h3><FiMail /> Subscribe to our newsletter</h3><form onSubmit={submit}><input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Enter your email" aria-label="Enter your email" /><button type="submit">Submit</button></form>{sent && <p role="status">Thanks — you’re on the list.</p>}</div><div className="footer-column"><h3>Company</h3><Link href="/careers">Careers</Link><Link href="/community">Discord</Link><Link href="/community">GitHub</Link><Link href="/company">LinkedIn</Link><Link href="/community">X</Link></div><div className="footer-column"><h3>Resources</h3><Link href="/blog">Blog</Link><Link href="/docs">Docs</Link><Link href="/changelog">Changelog</Link><Link href="/api">API Reference</Link></div></div></footer>;
+  return <footer><div className="footer-main"><div className="footer-brand"><Brand /><p>A personal AI workspace for conversations, projects, and files.</p></div><div className="footer-column"><h3>Workspace</h3><Link href="/chat">Chat</Link><Link href="/settings/general">Settings</Link></div><div className="footer-column"><h3>Help</h3><Link href="/docs">Documentation</Link><Link href="/docs/quickstart">Getting started</Link><Link href="/docs/usage">Usage and limits</Link></div></div></footer>;
 }
 
-function Home() { return <><Header home /><main className="home-page"><Hero /><Ecosystem /><Testimonials /><CommunityPanel /><Tools /><FinalCta /></main><Footer /></>; }
+function Home() { return <><Header home /><main className="home-page"><Hero /><Ecosystem /><CommunityPanel /><Tools /><FinalCta /></main><Footer /></>; }
 
 function DownloadCards() {
   const [choice, setChoice] = useState("");

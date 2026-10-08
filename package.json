@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/prepare-sites-build.mjs",
+    "build": "node scripts/generate-skills-index.mjs && vite build && node scripts/prepare-sites-build.mjs",
     "preview": "vite preview",
     "test:chat": "node --test tests/chat-api.test.mjs tests/chat-transport.test.mjs tests/chat-conversation-loading.test.mjs tests/web-search.test.mjs tests/connectors.test.mjs tests/gmail-links.test.mjs tests/drive-links.test.mjs",
     "test:sites": "node --test tests/sites-worker.test.mjs"

@@ -1,6 +1,15 @@
-# Jan website recreation
+# Jan — personal AI assistant
 
-A responsive, self-contained React recreation of the Jan website. The homepage follows the captured Jan design, while Docs, Research, Tokamak, Company, and related routes use local mock content.
+Jan is a personal AI website for chatting with an assistant, managing conversations and files, and connecting external services. It is designed as a personal alternative in the same category as ChatGPT and Claude, with its own interface and setup.
+
+The current app includes:
+
+- **Chat:** start conversations, view chat history, and work with attached files.
+- **Account and workspace settings:** configure the existing account and workspace options.
+- **Connected services:** link supported services and use their available actions in chat.
+- **Documentation pages:** local informational pages that ship with the app.
+
+This repository contains the web app, its API endpoints, and deployment support. The development server runs the React app locally; live chat and connected-service behavior require the relevant server and Supabase configuration described below.
 
 ## Local development
 
